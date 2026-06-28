@@ -47,44 +47,67 @@ function EditorContent() {
     showBody: true, showCta: true, plate: brand?.primary || '#000', img: null, imgRes: null, zoom: 120
   });
 
+  // Ensure template has all required fields with sensible defaults
+  const normalizeTemplate = (t: any) => {
+    const brand = t.brand || {};
+    const slots = t.slots || {};
+    return {
+      ...t,
+      formats: Array.isArray(t.formats) && t.formats.length > 0 ? t.formats : ['ig_square'],
+      brand: {
+        bg: brand.bg || '#1a1a1a',
+        primary: brand.primary || '#ffffff',
+        accent: brand.accent || '#a78bfa',
+        logoText: brand.logoText || t.name || 'Brand',
+        tagline: brand.tagline || '',
+        palette: Array.isArray(brand.palette) && brand.palette.length > 0
+          ? brand.palette
+          : ['#a78bfa', '#34d399', '#fb923c', '#f472b6', '#60a5fa'],
+      },
+      slots: {
+        headline: { max: slots.headline?.max || 80 },
+        body: { enabled: slots.body?.enabled ?? true, max: slots.body?.max || 200, removable: slots.body?.removable ?? true },
+        photo: { enabled: slots.photo?.enabled ?? true },
+        cta: { enabled: slots.cta?.enabled ?? true },
+      },
+    };
+  };
+
   const fetchContext = async () => {
     try {
-      let tId = templateId;
-      if (designId) {
-        // Mock loading design for this demo (assuming create new)
-      }
-      
       const res = await fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
-      
+
       let t = null;
       let pId = null;
-      for (const p of data.projects) {
+      for (const p of (data.projects || [])) {
         const tRes = await fetch(`/api/projects/${p.id}/templates`, { headers: { Authorization: `Bearer ${token}` } });
         const tData = await tRes.json();
-        const found = tData.templates?.find((x: any) => String(x.id) === String(tId));
+        const found = (tData.templates || []).find((x: any) => String(x.id) === String(templateId));
         if (found) { t = found; pId = p.id; break; }
       }
 
       if (!t) {
-        alert('Шаблон не знайдено');
         router.push('/dashboard');
         return;
       }
 
-      setTemplate(t);
-      const fmt = t.formats[0];
+      const normalized = normalizeTemplate(t);
+      setTemplate(normalized);
+
+      const fmt = FORMATS[normalized.formats[0]] ? normalized.formats[0] : 'ig_square';
       setDesign({
         projectId: pId,
-        templateId: t.id,
-        name: t.name,
+        templateId: normalized.id,
+        name: normalized.name,
         format: fmt,
-        slides: fmt === 'carousel' ? [
-          { ...baseSlide(t.brand), headline: 'Крок 1', showCta: false },
-          { ...baseSlide(t.brand), headline: 'Крок 2', showCta: false }
-        ] : [baseSlide(t.brand)]
+        slides: fmt === 'carousel'
+          ? [
+              { ...baseSlide(normalized.brand), headline: 'Крок 1', showCta: false },
+              { ...baseSlide(normalized.brand), headline: 'Крок 2', showCta: false },
+            ]
+          : [baseSlide(normalized.brand)],
       });
-      
     } catch (e) {
       console.error(e);
     } finally {
@@ -139,8 +162,17 @@ function EditorContent() {
     );
   }
 
-  const s = design.slides[activeSlide];
-  const f = FORMATS[design.format];
+  if (!design || !template) {
+    return (
+      <div className="flex justify-center h-screen items-center bg-[#1f1f1f] flex-col gap-4">
+        <p className="text-[#888]">Помилка завантаження шаблону</p>
+        <button onClick={() => router.push('/dashboard')} className="text-sm text-white underline">← Назад</button>
+      </div>
+    );
+  }
+
+  const s = design.slides[activeSlide] || design.slides[0];
+  const f = FORMATS[design.format] || FORMATS['ig_square'];
   const u = f.w / 1080;
   const isStory = design.format === 'ig_story';
 
