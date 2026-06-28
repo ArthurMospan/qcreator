@@ -3,9 +3,11 @@ services:
     name: qcreator
     runtime: node
     plan: free
-    buildCommand: "npm install"
-    startCommand: "node server.js"
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
     autoDeploy: true
     envVars:
       - key: QC_SECRET
         generateValue: true
+      - key: NODE_ENV
+        value: production

@@ -3,12 +3,12 @@
 import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Image as ImageIcon, LayoutTemplate, Loader2, Link as LinkIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, LayoutTemplate, Loader2, Figma, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
-type Template = { id: string; name: string; type: string };
-type Design = { id: string; name: string; template_name: string; updated_at: string };
+type Template = { id: string; name: string; formats: string[]; created_at: string };
+type Design = { id: string; name: string; saved_at: string };
 type Project = { id: string; name: string; hue: string };
 
 export default function ProjectDetails({ params }: { params: Promise<{ id: string }> }) {
@@ -20,19 +20,15 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
   const [templates, setTemplates] = useState<Template[]>([]);
   const [designs, setDesigns] = useState<Design[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // New Template state
-  const [showNewTpl, setShowNewTpl] = useState(false);
-  const [tplUrl, setTplUrl] = useState('');
-  const [tplName, setTplName] = useState('');
-  const [tplType, setTplType] = useState('post');
-  const [addingTpl, setAddingTpl] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (token && id) fetchData();
   }, [token, id]);
 
-  const fetchData = async () => {
+  const fetchData = async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    else setRefreshing(true);
     try {
       const [pRes, tRes, dRes] = await Promise.all([
         fetch(`/api/projects/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -51,56 +47,15 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
       console.error(e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const addTemplate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAddingTpl(true);
-    try {
-      const figmaMatch = tplUrl.match(/node-id=([^&]+)/);
-      if (!figmaMatch) {
-        alert('Невірне посилання на Figma. Переконайтеся, що ви скопіювали посилання на конкретний фрейм (повинен містити node-id).');
-        setAddingTpl(false);
-        return;
-      }
-      
-      const fileMatch = tplUrl.match(/file\/([^\/]+)/) || tplUrl.match(/design\/([^\/]+)/);
-      if (!fileMatch) {
-        alert('Не вдалося знайти File ID в посиланні.');
-        setAddingTpl(false);
-        return;
-      }
-
-      const nodeId = figmaMatch[1].replace('-', ':');
-      const fileId = fileMatch[1];
-
-      const res = await fetch(`/api/projects/${id}/templates`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({
-          name: tplName,
-          figma_url: tplUrl,
-          figma_file_id: fileId,
-          figma_node_id: nodeId,
-          type: tplType
-        })
-      });
-
-      if (res.ok) {
-        setTplName('');
-        setTplUrl('');
-        setShowNewTpl(false);
-        fetchData();
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setAddingTpl(false);
-    }
+  const FORMAT_LABELS: Record<string, string> = {
+    ig_portrait: '4:5',
+    ig_square: '1:1',
+    ig_story: '9:16',
+    carousel: '⊞',
   };
 
   if (loading) {
@@ -111,140 +66,160 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
     );
   }
 
-  if (!project) return <div>Проєкт не знайдено</div>;
+  if (!project) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4">
+      <p className="text-[#888]">Проєкт не знайдено</p>
+      <button onClick={() => router.push('/dashboard')} className="text-sm text-white underline">← Назад</button>
+    </div>
+  );
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-5xl mx-auto">
+      {/* Back + Title */}
       <div className="flex items-center gap-4 mb-10">
-        <button 
+        <button
           onClick={() => router.push('/dashboard')}
           className="w-10 h-10 rounded-full flex items-center justify-center bg-[#2a2a2a] hover:bg-[#333] transition-colors border border-white/5"
         >
           <ArrowLeft className="w-5 h-5 text-white" />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-semibold tracking-tight text-white">{project.name}</h1>
-          <p className="text-[#a1a1a1] text-sm mt-1">Керуйте шаблонами та дизайнами</p>
+          <p className="text-[#a1a1a1] text-sm mt-1">Шаблони та готові дизайни</p>
         </div>
+        <button
+          onClick={() => fetchData(true)}
+          title="Оновити"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-[#888] hover:text-white hover:bg-white/5 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-10">
-        
-        {/* Templates Section */}
+
+        {/* ── Templates ────────────────────────── */}
         <section>
           <div className="flex justify-between items-end mb-6">
             <div>
               <h2 className="text-xl font-medium text-white flex items-center gap-2">
-                <LayoutTemplate className="w-5 h-5" /> 
+                <LayoutTemplate className="w-5 h-5" />
                 Шаблони
               </h2>
-              <p className="text-[#888] text-xs mt-1">Додані макети з Figma</p>
+              <p className="text-[#888] text-xs mt-1">Додаються через Figma-плагін</p>
             </div>
-            {user?.role === 'designer' && (
-              <button 
-                onClick={() => setShowNewTpl(true)}
-                className="text-sm font-medium bg-[#2a2a2a] hover:bg-[#333] border border-white/5 px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-white"
-              >
-                <Plus className="w-4 h-4" />
-                Додати
-              </button>
-            )}
           </div>
 
-          {showNewTpl && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
+          {/* Plugin Instructions Card — always visible for designers */}
+          {user?.role === 'designer' && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-[#2a2a2a] p-5 rounded-2xl mb-6 border border-white/5"
+              className="bg-[#1e1e1e] border border-dashed border-white/10 rounded-2xl p-5 mb-5 flex gap-4 items-start"
             >
-              <form onSubmit={addTemplate} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5 uppercase tracking-wider">Назва шаблону</label>
-                  <input type="text" value={tplName} onChange={e => setTplName(e.target.value)} placeholder="Напр. Instagram Post" className="w-full bg-[#1f1f1f] border border-transparent rounded-xl px-4 py-2.5 text-white placeholder-[#666] focus:outline-none focus:border-[#444] transition-all text-sm" required />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5 uppercase tracking-wider">Посилання на Figma Frame</label>
-                  <input type="url" value={tplUrl} onChange={e => setTplUrl(e.target.value)} placeholder="https://www.figma.com/design/..." className="w-full bg-[#1f1f1f] border border-transparent rounded-xl px-4 py-2.5 text-white placeholder-[#666] focus:outline-none focus:border-[#444] transition-all text-sm" required />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5 uppercase tracking-wider">Формат</label>
-                  <select value={tplType} onChange={e => setTplType(e.target.value)} className="w-full bg-[#1f1f1f] border border-transparent rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#444] transition-all text-sm">
-                    <option value="post">Post (1:1)</option>
-                    <option value="story">Story (9:16)</option>
-                    <option value="banner">Banner (16:9)</option>
-                  </select>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => setShowNewTpl(false)} className="px-4 py-2 rounded-xl text-[#a1a1a1] hover:text-white transition-colors text-sm font-medium">Скасувати</button>
-                  <button type="submit" disabled={addingTpl} className="flex-1 bg-white hover:bg-[#e0e0e0] text-black font-medium py-2 rounded-xl transition-colors text-sm flex justify-center items-center">
-                    {addingTpl ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Зберегти'}
-                  </button>
-                </div>
-              </form>
+              <div className="w-9 h-9 rounded-xl bg-[#2a2a2a] flex items-center justify-center flex-shrink-0 border border-white/5">
+                <Figma className="w-4 h-4 text-[#a78bfa]" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white mb-1">Додати шаблон з Figma</h4>
+                <ol className="text-xs text-[#888] space-y-1 list-decimal list-inside leading-relaxed">
+                  <li>Відкрийте плагін <span className="text-[#ccc]">qCreator</span> у Figma</li>
+                  <li>Увійдіть з вашим email та паролем</li>
+                  <li>Виділіть фрейм → Оберіть цей проєкт → Натисніть «Запушити»</li>
+                  <li>Натисніть <span className="text-white">↻ оновити</span> на цій сторінці</li>
+                </ol>
+              </div>
             </motion.div>
           )}
 
+          {/* Template list */}
           {templates.length === 0 ? (
             <div className="bg-[#2a2a2a]/30 border border-white/5 border-dashed rounded-2xl p-8 text-center">
-              <p className="text-[#888] text-sm">У цьому проєкті ще немає шаблонів.</p>
+              <p className="text-[#888] text-sm">Шаблонів ще немає.</p>
+              {user?.role === 'smm' && (
+                <p className="text-[#666] text-xs mt-2">Попросіть дизайнера додати шаблон через Figma-плагін.</p>
+              )}
             </div>
           ) : (
-            <div className="grid gap-4">
-              {templates.map(t => (
-                <div key={t.id} className="bg-[#2a2a2a] p-4 rounded-2xl border border-white/5 flex items-center justify-between group">
+            <div className="grid gap-3">
+              {templates.map((t, i) => (
+                <motion.div
+                  key={t.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="bg-[#2a2a2a] p-4 rounded-2xl border border-white/5 flex items-center justify-between group"
+                >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-[#1f1f1f] flex items-center justify-center border border-white/5">
-                      <LayoutTemplate className="w-5 h-5 text-[#888]" />
+                    <div className="w-10 h-10 rounded-xl bg-[#1f1f1f] flex items-center justify-center border border-white/5">
+                      <LayoutTemplate className="w-5 h-5 text-[#666]" />
                     </div>
                     <div>
                       <h4 className="font-medium text-white text-sm">{t.name}</h4>
-                      <p className="text-xs text-[#666] uppercase tracking-wider mt-0.5">{t.type}</p>
+                      <div className="flex gap-1 mt-1">
+                        {(t.formats || []).map(f => (
+                          <span key={f} className="text-[10px] font-bold bg-[#333] text-[#888] px-1.5 py-0.5 rounded-md">
+                            {FORMAT_LABELS[f] || f}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   {user?.role === 'smm' && (
-                    <Link 
+                    <Link
                       href={`/dashboard/editor?templateId=${t.id}`}
-                      className="opacity-0 group-hover:opacity-100 bg-white text-black px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-[#e0e0e0]"
+                      className="opacity-0 group-hover:opacity-100 bg-white text-black px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:bg-[#e0e0e0]"
                     >
-                      Створити
+                      Створити →
                     </Link>
                   )}
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
         </section>
 
-        {/* Designs Section */}
+        {/* ── Designs ──────────────────────────── */}
         <section>
           <div className="flex justify-between items-end mb-6">
             <div>
               <h2 className="text-xl font-medium text-white flex items-center gap-2">
-                <ImageIcon className="w-5 h-5" /> 
-                Створені Дизайни
+                <ImageIcon className="w-5 h-5" />
+                Готові дизайни
               </h2>
-              <p className="text-[#888] text-xs mt-1">Готові для публікації</p>
+              <p className="text-[#888] text-xs mt-1">Зроблені СММ-менеджером</p>
             </div>
           </div>
 
           {designs.length === 0 ? (
             <div className="bg-[#2a2a2a]/30 border border-white/5 border-dashed rounded-2xl p-8 text-center">
-              <p className="text-[#888] text-sm">СММ ще не створював дизайнів.</p>
+              <p className="text-[#888] text-sm">Дизайнів ще немає.</p>
+              {user?.role === 'smm' && templates.length > 0 && (
+                <p className="text-[#666] text-xs mt-2">Оберіть шаблон зліва і натисніть «Створити».</p>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
-              {designs.map(d => (
-                <Link 
-                  key={d.id} 
-                  href={`/dashboard/editor?designId=${d.id}`}
-                  className="bg-[#2a2a2a] p-4 rounded-2xl border border-white/5 hover:border-white/20 transition-all group block"
+              {designs.map((d, i) => (
+                <motion.div
+                  key={d.id}
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
                 >
-                  <div className="aspect-square bg-[#1f1f1f] rounded-xl border border-white/5 flex items-center justify-center mb-4 relative overflow-hidden">
-                    <ImageIcon className="w-8 h-8 text-[#444] group-hover:scale-110 transition-transform duration-500" />
-                  </div>
-                  <h4 className="font-medium text-white text-sm truncate">{d.name}</h4>
-                  <p className="text-xs text-[#666] mt-1 truncate">{d.template_name}</p>
-                </Link>
+                  <Link
+                    href={`/dashboard/editor?designId=${d.id}`}
+                    className="bg-[#2a2a2a] p-4 rounded-2xl border border-white/5 hover:border-white/20 transition-all group block"
+                  >
+                    <div className="aspect-square bg-[#1f1f1f] rounded-xl border border-white/5 flex items-center justify-center mb-4 relative overflow-hidden">
+                      <ImageIcon className="w-8 h-8 text-[#444] group-hover:scale-110 transition-transform duration-500" />
+                    </div>
+                    <h4 className="font-medium text-white text-sm truncate">{d.name}</h4>
+                    <p className="text-xs text-[#666] mt-1">
+                      {d.saved_at ? new Date(d.saved_at).toLocaleDateString('uk-UA') : ''}
+                    </p>
+                  </Link>
+                </motion.div>
               ))}
             </div>
           )}

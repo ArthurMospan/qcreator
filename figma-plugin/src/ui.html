@@ -1,76 +1,457 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8" />
 <style>
-  body { font-family: sans-serif; padding: 16px; margin: 0; background: #fff; }
-  h3 { margin-top: 0; font-size: 14px; font-weight: 600; }
-  label { display: block; font-size: 11px; font-weight: bold; margin-bottom: 4px; margin-top: 12px; color: #333; }
-  input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
-  button { margin-top: 16px; width: 100%; padding: 10px; background: #2D1B3D; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; }
-  button:hover { background: #1a0f24; }
-  #status { margin-top: 12px; font-size: 11px; color: #666; word-break: break-all; }
-  .err { color: #d32f2f !important; }
-  .ok { color: #2e7d32 !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: -apple-system, 'Inter', BlinkMacSystemFont, sans-serif;
+    background: #171717;
+    color: #ebebeb;
+    width: 320px;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── Header ─── */
+  .hdr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #262626;
+  }
+  .hdr-logo {
+    width: 26px; height: 26px;
+    background: #fff;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 900; color: #171717;
+    flex-shrink: 0;
+  }
+  .hdr-title { font-size: 13px; font-weight: 700; color: #fff; }
+  .hdr-sub { font-size: 10px; color: #666; margin-top: 1px; }
+
+  /* ─── Screens ─── */
+  .screen { display: none; flex-direction: column; gap: 12px; padding: 16px; flex: 1; }
+  .screen.active { display: flex; }
+
+  /* ─── Form ─── */
+  .field label { display: block; font-size: 10px; font-weight: 600; color: #777; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%;
+    padding: 9px 12px;
+    background: #222;
+    border: 1px solid #2e2e2e;
+    border-radius: 8px;
+    color: #ebebeb;
+    font-size: 12px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus { border-color: #555; }
+  .field input::placeholder { color: #444; }
+
+  /* ─── Buttons ─── */
+  .btn {
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .15s, transform .08s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-white { background: #fff; color: #111; }
+  .btn-white:hover:not(:disabled) { background: #eee; }
+  .btn-muted { background: #232323; color: #888; border: 1px solid #2e2e2e; }
+  .btn-muted:hover:not(:disabled) { background: #2a2a2a; color: #bbb; }
+
+  /* ─── Project list ─── */
+  .proj-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 190px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+  }
+  .proj-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    background: #1e1e1e;
+    border: 1.5px solid #2a2a2a;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .proj-item:hover { border-color: #444; }
+  .proj-item.sel { border-color: #fff; background: #242424; }
+  .proj-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid #444;
+    flex-shrink: 0;
+    transition: all .12s;
+  }
+  .proj-item.sel .proj-dot { background: #fff; border-color: #fff; }
+  .proj-name { font-size: 12px; color: #ccc; flex: 1; }
+  .proj-item.sel .proj-name { color: #fff; font-weight: 600; }
+
+  /* ─── Toast / Status ─── */
+  .toast {
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    display: none;
+  }
+  .toast.err { display: block; background: #2c1515; border: 1px solid #5a2020; color: #ff8080; }
+  .toast.ok  { display: block; background: #0f2a0f; border: 1px solid #1e5a1e; color: #70e070; }
+  .toast.inf { display: block; background: #1a1a2a; border: 1px solid #2a2a4a; color: #8888cc; }
+
+  /* ─── Divider ─── */
+  .divider { height: 1px; background: #222; }
+
+  /* ─── Breadcrumb ─── */
+  .bc { display: flex; align-items: center; gap: 6px; }
+  .bc-back { background: none; border: none; color: #555; font-size: 11px; cursor: pointer; padding: 0; }
+  .bc-back:hover { color: #aaa; }
+  .bc-sep { color: #333; font-size: 11px; }
+  .bc-label { font-size: 11px; color: #888; }
+  .bc-project { font-size: 11px; color: #ccc; font-weight: 600; }
+
+  /* ─── Formats row ─── */
+  .fmts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .fmt-opt {
+    padding: 8px 10px;
+    background: #1e1e1e;
+    border: 1.5px solid #2a2a2a;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .12s;
+    text-align: center;
+  }
+  .fmt-opt:hover { border-color: #444; }
+  .fmt-opt.sel { border-color: #fff; background: #242424; }
+  .fmt-opt .fmt-ratio { font-size: 10px; font-weight: 800; color: #666; }
+  .fmt-opt.sel .fmt-ratio { color: #fff; }
+  .fmt-opt .fmt-name { font-size: 11px; color: #777; margin-top: 1px; }
+  .fmt-opt.sel .fmt-name { color: #ccc; }
+
+  /* ─── Hint box ─── */
+  .hint {
+    background: #1c1c1c;
+    border: 1px dashed #2e2e2e;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: #555;
+    line-height: 1.6;
+  }
+  .hint b { color: #888; }
+
+  /* ─── Spinner ─── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 14px; height: 14px; border: 2px solid #333; border-top-color: #888; border-radius: 50%; animation: spin .7s linear infinite; }
 </style>
 </head>
 <body>
-  <h3>qCreator Export</h3>
-  <label>Backend URL</label>
-  <input type="text" id="url" value="http://localhost:3000" />
-  
-  <label>Project ID</label>
-  <input type="text" id="pid" placeholder="e.g. 1" value="1" />
-  
-  <label>Template Name</label>
-  <input type="text" id="name" placeholder="Figma Template" value="Figma Template" />
-  
-  <button id="export">Export Selected Frame</button>
-  <div id="status"></div>
 
-  <script>
-    document.getElementById('export').onclick = () => {
-      document.getElementById('status').innerText = 'Extracting from Figma...';
-      document.getElementById('status').className = '';
-      parent.postMessage({ pluginMessage: { type: 'export' } }, '*');
-    };
+<div class="hdr">
+  <div class="hdr-logo">Q</div>
+  <div>
+    <div class="hdr-title">qCreator</div>
+    <div class="hdr-sub">Figma → Backend</div>
+  </div>
+</div>
 
-    window.onmessage = async (event) => {
-      const msg = event.data.pluginMessage;
-      if (msg.type === 'error') {
-        document.getElementById('status').innerText = msg.message;
-        document.getElementById('status').className = 'err';
-        return;
+<!-- ══════════════════════════════════════════════
+     SCREEN 1: Login
+══════════════════════════════════════════════ -->
+<div class="screen active" id="s-login">
+  <div class="field">
+    <label>Backend</label>
+    <input id="url" type="url" value="https://qcreator.onrender.com" placeholder="https://..." />
+  </div>
+  <div class="field">
+    <label>Email</label>
+    <input id="email" type="email" placeholder="designer@company.com" />
+  </div>
+  <div class="field">
+    <label>Пароль</label>
+    <input id="pass" type="password" placeholder="••••••••" />
+  </div>
+  <button class="btn btn-white" id="btn-login">Увійти →</button>
+  <div class="toast" id="t-login"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 2: Select project
+══════════════════════════════════════════════ -->
+<div class="screen" id="s-projects">
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <div class="field" style="flex:1; gap:0; margin:0;">
+      <label style="margin-bottom:0">Оберіть проєкт</label>
+    </div>
+    <button class="bc-back" id="back-login" style="font-size:11px; display:flex; align-items:center; gap:3px;">← Вийти</button>
+  </div>
+  <div class="proj-list" id="proj-list"></div>
+  <button class="btn btn-white" id="btn-select-proj" disabled>Вибрати →</button>
+  <div class="toast" id="t-proj"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 3: Export frame
+══════════════════════════════════════════════ -->
+<div class="screen" id="s-export">
+  <div class="bc">
+    <button class="bc-back" id="back-proj">← Проєкти</button>
+    <span class="bc-sep">›</span>
+    <span class="bc-project" id="bc-proj-name"></span>
+  </div>
+  <div class="divider"></div>
+
+  <div class="hint">
+    <b>Як це зробити:</b><br>
+    Виділіть один фрейм у Figma, заповніть поля нижче і натисніть «Запушити».
+  </div>
+
+  <div class="field">
+    <label>Назва шаблону</label>
+    <input id="tpl-name" type="text" placeholder="Напр. Пост новини" />
+  </div>
+
+  <div class="field">
+    <label>Формати</label>
+    <div class="fmts" id="fmt-grid">
+      <div class="fmt-opt sel" data-fmt="ig_portrait">
+        <div class="fmt-ratio">4:5</div>
+        <div class="fmt-name">Instagram Пост</div>
+      </div>
+      <div class="fmt-opt" data-fmt="ig_square">
+        <div class="fmt-ratio">1:1</div>
+        <div class="fmt-name">Квадрат</div>
+      </div>
+      <div class="fmt-opt" data-fmt="ig_story">
+        <div class="fmt-ratio">9:16</div>
+        <div class="fmt-name">Сторіс</div>
+      </div>
+      <div class="fmt-opt" data-fmt="carousel">
+        <div class="fmt-ratio">⊞</div>
+        <div class="fmt-name">Карусель</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-white" id="btn-push">🚀&nbsp; Запушити шаблон</button>
+  <div class="toast" id="t-export"></div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────
+  let BASE_URL = '';
+  let TOKEN = '';
+  let SELECTED_PROJ_ID = null;
+  let SELECTED_PROJ_NAME = '';
+  let SELECTED_FMTS = new Set(['ig_portrait']);
+
+  // ── Helpers ────────────────────────────────────────────────────
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  function toast(id, msg, type) {
+    const el = document.getElementById(id);
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+  }
+  function clearToast(id) {
+    const el = document.getElementById(id);
+    el.className = 'toast';
+    el.textContent = '';
+  }
+  function loading(btnId, isLoading) {
+    const btn = document.getElementById(btnId);
+    if (isLoading) {
+      btn._orig = btn.innerHTML;
+      btn.innerHTML = '<div class="spinner"></div>';
+      btn.disabled = true;
+    } else {
+      btn.innerHTML = btn._orig || btn.innerHTML;
+      btn.disabled = false;
+    }
+  }
+
+  // ── Screen 1: Login ────────────────────────────────────────────
+  document.getElementById('btn-login').addEventListener('click', async () => {
+    const url = document.getElementById('url').value.trim().replace(/\/$/, '');
+    const email = document.getElementById('email').value.trim();
+    const pass = document.getElementById('pass').value;
+
+    if (!url || !email || !pass) { toast('t-login', 'Заповніть всі поля', 'err'); return; }
+
+    loading('btn-login', true);
+    clearToast('t-login');
+
+    try {
+      const res = await fetch(`${url}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (data.user.role !== 'designer') throw new Error('Тільки дизайнер може додавати шаблони');
+
+      BASE_URL = url;
+      TOKEN = data.token;
+
+      await loadProjects();
+    } catch (e) {
+      toast('t-login', e.message, 'err');
+    } finally {
+      loading('btn-login', false);
+    }
+  });
+
+  // Pressing Enter in password field submits login
+  document.getElementById('pass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-login').click();
+  });
+
+  // ── Screen 2: Projects ─────────────────────────────────────────
+  async function loadProjects() {
+    try {
+      const res = await fetch(`${BASE_URL}/api/projects`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      renderProjects(data.projects || []);
+      show('s-projects');
+    } catch (e) {
+      toast('t-login', e.message, 'err');
+    }
+  }
+
+  function renderProjects(projects) {
+    const list = document.getElementById('proj-list');
+    list.innerHTML = '';
+    SELECTED_PROJ_ID = null;
+    document.getElementById('btn-select-proj').disabled = true;
+
+    if (!projects.length) {
+      list.innerHTML = '<div style="text-align:center; color:#555; font-size:12px; padding:16px;">Немає проєктів. Спершу створіть проєкт на сайті.</div>';
+      return;
+    }
+
+    projects.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'proj-item';
+      el.innerHTML = `<div class="proj-dot"></div><div class="proj-name">${p.name}</div>`;
+      el.onclick = () => {
+        document.querySelectorAll('.proj-item').forEach(x => x.classList.remove('sel'));
+        el.classList.add('sel');
+        SELECTED_PROJ_ID = p.id;
+        SELECTED_PROJ_NAME = p.name;
+        document.getElementById('btn-select-proj').disabled = false;
+      };
+      list.appendChild(el);
+    });
+  }
+
+  document.getElementById('btn-select-proj').addEventListener('click', () => {
+    if (!SELECTED_PROJ_ID) return;
+    document.getElementById('bc-proj-name').textContent = SELECTED_PROJ_NAME;
+    show('s-export');
+  });
+
+  document.getElementById('back-login').addEventListener('click', () => {
+    TOKEN = ''; BASE_URL = '';
+    show('s-login');
+  });
+
+  // ── Screen 3: Export ───────────────────────────────────────────
+  document.getElementById('back-proj').addEventListener('click', async () => {
+    SELECTED_PROJ_ID = null;
+    await loadProjects();
+  });
+
+  // Format toggle (multi-select)
+  document.getElementById('fmt-grid').addEventListener('click', e => {
+    const opt = e.target.closest('.fmt-opt');
+    if (!opt) return;
+    const fmt = opt.dataset.fmt;
+    if (SELECTED_FMTS.has(fmt)) {
+      if (SELECTED_FMTS.size === 1) return; // keep at least 1
+      SELECTED_FMTS.delete(fmt);
+      opt.classList.remove('sel');
+    } else {
+      SELECTED_FMTS.add(fmt);
+      opt.classList.add('sel');
+    }
+  });
+
+  document.getElementById('btn-push').addEventListener('click', () => {
+    const name = document.getElementById('tpl-name').value.trim();
+    if (!name) { toast('t-export', 'Введіть назву шаблону', 'err'); return; }
+    clearToast('t-export');
+    toast('t-export', 'Читаємо фрейм...', 'inf');
+    parent.postMessage({ pluginMessage: { type: 'export' } }, '*');
+  });
+
+  window.onmessage = async (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    if (msg.type === 'error') {
+      toast('t-export', `⚠️ ${msg.message}`, 'err');
+      return;
+    }
+
+    if (msg.type === 'export-result') {
+      const name = document.getElementById('tpl-name').value.trim();
+      const formats = Array.from(SELECTED_FMTS);
+
+      loading('btn-push', true);
+      toast('t-export', 'Відправляємо до qCreator...', 'inf');
+
+      try {
+        const res = await fetch(`${BASE_URL}/api/projects/${SELECTED_PROJ_ID}/templates`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
+          body: JSON.stringify({ name, formats, brand: msg.brand, slots: msg.slots, layout: msg.layout })
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
+        toast('t-export', `✅ Готово! "${json.template.name}" додано до проєкту.`, 'ok');
+        document.getElementById('tpl-name').value = '';
+
+        // Reset format selection
+        SELECTED_FMTS = new Set(['ig_portrait']);
+        document.querySelectorAll('.fmt-opt').forEach(o => {
+          o.classList.toggle('sel', o.dataset.fmt === 'ig_portrait');
+        });
+      } catch (e) {
+        toast('t-export', `Помилка: ${e.message}`, 'err');
+      } finally {
+        loading('btn-push', false);
       }
-      if (msg.type === 'export-result') {
-        document.getElementById('status').innerText = 'Sending to qCreator...';
-        
-        const url = document.getElementById('url').value.replace(/\/$/, '');
-        const pid = document.getElementById('pid').value;
-        const name = document.getElementById('name').value;
-        
-        try {
-          const res = await fetch(`${url}/api/projects/${pid}/templates`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: name,
-              formats: ['figma'],
-              brand: msg.brand,
-              slots: msg.slots,
-              layout: msg.layout
-            })
-          });
-          
-          if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
-          const json = await res.json();
-          document.getElementById('status').innerText = `Success! Template ID: ${json.template.id}`;
-          document.getElementById('status').className = 'ok';
-        } catch (e) {
-          document.getElementById('status').innerText = `API Error: ${e.message}`;
-          document.getElementById('status').className = 'err';
-        }
-      }
-    };
-  </script>
+    }
+  };
+</script>
 </body>
 </html>
