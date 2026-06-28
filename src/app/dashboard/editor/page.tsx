@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2, ArrowLeft, Download, Save, CheckCircle, SlidersHorizontal, Image as ImageIcon, Type, Palette } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const FORMATS: Record<string, {w: number, h: number, label: string, ratio: string}> = {
   ig_portrait: { w: 1080, h: 1350, label: 'Пост', ratio: '4:5' },
@@ -14,11 +13,11 @@ const FORMATS: Record<string, {w: number, h: number, label: string, ratio: strin
   carousel: { w: 1080, h: 1350, label: 'Каруселя', ratio: '4:5' },
 };
 
-function lum(hex: string) { 
-  const c = hex.replace('#', ''); 
-  const r = parseInt(c.substr(0, 2), 16) / 255, g = parseInt(c.substr(2, 2), 16) / 255, b = parseInt(c.substr(4, 2), 16) / 255; 
-  const f = (v: number) => v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); 
-  return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); 
+function lum(hex: string) {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.substring(0, 2), 16) / 255, g = parseInt(c.substring(2, 4), 16) / 255, b = parseInt(c.substring(4, 6), 16) / 255;
+  const f = (v: number) => v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4);
+  return .2126 * f(r) + .7152 * f(g) + .0722 * f(b);
 }
 function contrast(a: string, b: string) { const L1 = lum(a), L2 = lum(b); return (Math.max(L1, L2) + .05) / (Math.min(L1, L2) + .05); }
 function readable(bg: string) { return contrast('#FFFFFF', bg) >= contrast('#1A1A1A', bg) ? '#FFFFFF' : '#1A1A1A'; }
@@ -35,6 +34,8 @@ function EditorContent() {
   const [template, setTemplate] = useState<any>(null);
   const [design, setDesign] = useState<any>(null);
   const [activeSlide, setActiveSlide] = useState(0);
+  // designId present = editing existing design (use PUT), absent = new design (use POST)
+  const [existingDesignId, setExistingDesignId] = useState<string | null>(null);
 
   const stageRef = useRef<HTMLDivElement>(null);
 
@@ -47,13 +48,16 @@ function EditorContent() {
     showBody: true, showCta: true, plate: brand?.primary || '#000', img: null, imgRes: null, zoom: 120
   });
 
-  // Ensure template has all required fields with sensible defaults
   const normalizeTemplate = (t: any) => {
     const brand = t.brand || {};
     const slots = t.slots || {};
+    // Filter out any format keys that the editor doesn't support
+    const knownFormats = (Array.isArray(t.formats) ? t.formats : []).filter(
+      (f: string) => f in FORMATS
+    );
     return {
       ...t,
-      formats: (() => { const known = (Array.isArray(t.formats) ? t.formats : []).filter((ff: string) => FORMATS[ff]); return known.length ? known : ['ig_square']; })(),
+      formats: knownFormats.length > 0 ? knownFormats : ['ig_square'],
       brand: {
         bg: brand.bg || '#1a1a1a',
         primary: brand.primary || '#ffffff',
@@ -75,6 +79,40 @@ function EditorContent() {
 
   const fetchContext = async () => {
     try {
+      // Case 1: editing an existing design — load design then its template
+      if (designId && !templateId) {
+        const dRes = await fetch(`/api/designs/${designId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!dRes.ok) { router.push('/dashboard'); return; }
+        const { design: existingDesign } = await dRes.json();
+
+        const tRes = await fetch(`/api/templates/${existingDesign.template_id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!tRes.ok) { router.push('/dashboard'); return; }
+        const { template: rawTemplate } = await tRes.json();
+
+        const normalized = normalizeTemplate(rawTemplate);
+        setTemplate(normalized);
+        setExistingDesignId(existingDesign.id);
+        // Use saved format if still valid, otherwise fall back
+        const fmt = (existingDesign.format && FORMATS[existingDesign.format])
+          ? existingDesign.format
+          : normalized.formats[0];
+        setDesign({
+          projectId: existingDesign.project_id,
+          templateId: existingDesign.template_id,
+          name: existingDesign.name,
+          format: fmt,
+          slides: Array.isArray(existingDesign.slides) && existingDesign.slides.length > 0
+            ? existingDesign.slides
+            : [baseSlide(normalized.brand)],
+        });
+        return;
+      }
+
+      // Case 2: creating a new design from a template
       const res = await fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
 
@@ -118,17 +156,37 @@ function EditorContent() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`/api/projects/${design.projectId}/designs`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify(design)
-      });
+      let res: Response;
+      if (existingDesignId) {
+        // Update existing design
+        res = await fetch(`/api/designs/${existingDesignId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(design),
+        });
+      } else {
+        // Create new design
+        res = await fetch(`/api/projects/${design.projectId}/designs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(design),
+        });
+        if (res.ok) {
+          const { design: saved } = await res.json();
+          setExistingDesignId(saved.id);
+        }
+      }
+      if (!res.ok) throw new Error(`Save failed: ${res.status}`);
       alert('Збережено успішно!');
     } catch (e) {
       console.error(e);
+      alert('Помилка збереження. Спробуйте ще раз.');
     } finally {
       setSaving(false);
     }
@@ -137,7 +195,7 @@ function EditorContent() {
   const handleDownload = async () => {
     if (!stageRef.current) return;
     try {
-      const f = FORMATS[design.format];
+      const f = FORMATS[design.format] ?? FORMATS['ig_square'];
       const url = await htmlToImage.toPng(stageRef.current, { width: f.w, height: f.h, pixelRatio: 1 });
       const a = document.createElement('a');
       a.download = `${design.name}.png`;
@@ -172,7 +230,7 @@ function EditorContent() {
   }
 
   const s = design.slides[activeSlide] || design.slides[0];
-  const f = FORMATS[design.format] || FORMATS['ig_square'];
+  const f = FORMATS[design.format] ?? FORMATS['ig_square'];
   const u = f.w / 1080;
   const isStory = design.format === 'ig_story';
 
@@ -181,15 +239,15 @@ function EditorContent() {
       {/* Top Header */}
       <header className="h-[60px] border-b border-white/10 px-4 flex items-center justify-between bg-[#1f1f1f] z-10 shrink-0">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => router.back()} 
+          <button
+            onClick={() => router.back()}
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 text-[#a1a1a1]" />
           </button>
-          
-          <input 
-            type="text" 
+
+          <input
+            type="text"
             value={design.name}
             onChange={e => setDesign({...design, name: e.target.value})}
             className="bg-transparent border-none text-[15px] font-medium text-white focus:outline-none focus:ring-0 max-w-[200px]"
@@ -197,9 +255,9 @@ function EditorContent() {
           <div className="h-4 w-px bg-white/10 mx-1"></div>
           <span className="text-[11px] font-medium text-[#888] uppercase tracking-wider">{template.name}</span>
         </div>
-        
+
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={handleSave}
             disabled={saving}
             className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 rounded-full transition-colors text-[13px] font-medium text-[#a1a1a1]"
@@ -207,7 +265,7 @@ function EditorContent() {
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             Зберегти
           </button>
-          <button 
+          <button
             onClick={handleDownload}
             className="flex items-center gap-2 px-5 py-2 bg-white hover:bg-[#e0e0e0] text-black rounded-full transition-colors text-[13px] font-semibold"
           >
@@ -221,7 +279,7 @@ function EditorContent() {
         {/* Left Sidebar (Unified Controls) */}
         <aside className="w-[320px] bg-[#1a1a1a] border-r border-white/5 flex flex-col z-10 overflow-hidden shrink-0">
           <div className="flex-1 overflow-y-auto p-5 space-y-8 scrollbar-hide">
-            
+
             {/* Format Section */}
             <section>
               <div className="flex items-center gap-2 mb-4">
@@ -234,13 +292,18 @@ function EditorContent() {
                     key={fmt}
                     onClick={() => { setDesign({...design, format: fmt}); setActiveSlide(0); }}
                     className={`py-2 px-3 rounded-xl border text-left transition-all ${
-                      design.format === fmt 
-                        ? 'bg-white/10 border-white/20 text-white' 
+                      design.format === fmt
+                        ? 'bg-white/10 border-white/20 text-white'
                         : 'bg-transparent border-transparent text-[#888] hover:bg-white/5'
                     }`}
                   >
+<<<<<<< HEAD
                     <div className="text-[10px] font-bold mb-0.5">{FORMATS[fmt]?.ratio}</div>
                     <div className="text-xs">{FORMATS[fmt]?.label}</div>
+=======
+                    <div className="text-[10px] font-bold mb-0.5">{FORMATS[fmt]?.ratio ?? fmt}</div>
+                    <div className="text-xs">{FORMATS[fmt]?.label ?? fmt}</div>
+>>>>>>> 2fa7b15 (feat: harden security, add demo seeding, fix SMM editor flow)
                   </button>
                 ))}
               </div>
@@ -258,7 +321,7 @@ function EditorContent() {
                     <span className="text-[11px] text-[#888]">Заголовок</span>
                     <span className="text-[10px] text-[#666]">{s.headline.length}/{template.slots.headline.max}</span>
                   </div>
-                  <textarea 
+                  <textarea
                     value={s.headline}
                     onChange={e => updateSlide('headline', e.target.value)}
                     maxLength={template.slots.headline.max}
@@ -280,7 +343,7 @@ function EditorContent() {
                       </div>
                     </div>
                     {s.showBody && (
-                      <textarea 
+                      <textarea
                         value={s.body}
                         onChange={e => updateSlide('body', e.target.value)}
                         maxLength={template.slots.body.max}
@@ -299,13 +362,13 @@ function EditorContent() {
                 <Palette className="w-4 h-4 text-[#888]" />
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-[#a1a1a1]">Візуал</h3>
               </div>
-              
+
               {template.slots.photo.enabled && (
                 <div className="mb-5">
                   <span className="text-[11px] text-[#888] block mb-2">Зображення</span>
                   <label className="flex items-center justify-center w-full h-24 border border-dashed border-white/10 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group relative overflow-hidden">
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept="image/*"
                       className="hidden"
                       onChange={e => {
@@ -328,7 +391,7 @@ function EditorContent() {
                   </label>
                 </div>
               )}
-              
+
               <div>
                 <span className="text-[11px] text-[#888] block mb-2">Акцентний колір</span>
                 <div className="flex gap-2 flex-wrap">
@@ -345,7 +408,7 @@ function EditorContent() {
                 </div>
               </div>
             </section>
-            
+
             {/* Automated Checks built-in at the bottom */}
             <div className="mt-8 pt-6 border-t border-white/5">
                <h3 className="font-medium text-xs mb-3 flex items-center gap-1.5 text-[#a1a1a1]">
@@ -353,7 +416,7 @@ function EditorContent() {
                 Усі перевірки пройдено
               </h3>
             </div>
-            
+
           </div>
         </aside>
 
@@ -370,7 +433,7 @@ function EditorContent() {
               style={{
                 width: f.w,
                 height: f.h,
-                transform: `scale(${Math.min(1, (window?.innerWidth ? window.innerWidth - 400 : 700) / f.w, (window?.innerHeight ? window.innerHeight - 120 : 700) / f.h)})`,
+                transform: `scale(${Math.min(1, (typeof window !== 'undefined' ? window.innerWidth - 400 : 700) / f.w, (typeof window !== 'undefined' ? window.innerHeight - 120 : 700) / f.h)})`,
                 transformOrigin: 'center center',
               }}
             >
@@ -388,11 +451,11 @@ function EditorContent() {
                   <span style={{ fontSize: 38 * u, fontWeight: 'bold', color: template.brand.primary, letterSpacing: '-0.02em' }}>{template.brand.logoText}</span>
                   <span style={{ fontSize: 17 * u, color: template.brand.primary, opacity: 0.7 }}>{template.brand.tagline}</span>
                 </div>
-                
+
                 {template.slots.photo.enabled && !isStory && (
                   <div style={{ flex: 1, marginTop: 30 * u, borderRadius: 24 * u, backgroundColor: '#e5e5e5', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
                 )}
-                
+
                 <div style={{ marginTop: isStory ? 'auto' : (template.slots.photo.enabled ? 30 * u : 'auto'), display: 'flex', flexDirection: 'column', gap: 20 * u, alignItems: 'flex-start' }}>
                   <div style={{ background: s.plate, color: readable(s.plate), fontSize: 58 * u, fontWeight: '800', padding: `${20 * u}px ${28 * u}px`, borderRadius: 16 * u, lineHeight: 1.08, letterSpacing: '-0.03em' }}>
                     {s.headline || ' '}
@@ -413,7 +476,7 @@ function EditorContent() {
               {isStory && template.slots.photo.enabled && (
                  <div style={{ position: 'absolute', inset: 0, zIndex: 0, backgroundColor: '#222', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
               )}
-              
+
               <div style={{ position: 'absolute', width: 520 * u, height: 520 * u, top: -160 * u, right: -160 * u, background: template.brand.primary, opacity: 0.05, borderRadius: '50%', zIndex: 1 }} />
               <div style={{ position: 'absolute', width: 360 * u, height: 360 * u, bottom: -120 * u, left: -120 * u, background: template.brand.accent, opacity: 0.1, borderRadius: '50%', zIndex: 1 }} />
               {isStory && (

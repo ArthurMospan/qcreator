@@ -43,13 +43,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Вкажи назву і хоча б один формат' }, { status: 400 });
     }
 
+    const VALID_FORMATS = new Set(['ig_portrait', 'ig_square', 'ig_story', 'carousel']);
+    const validFormats = body.formats.filter((f: string) => VALID_FORMATS.has(f));
+    if (!validFormats.length) {
+      return NextResponse.json({ error: 'Жоден формат не підтримується (ig_portrait, ig_square, ig_story, carousel)' }, { status: 400 });
+    }
+
     const slots = body.slots || {};
     if (body.layout) slots.layout = body.layout;
 
     const t = await db().createTemplate({
       projectId: p.id,
       name: body.name.trim(),
-      formats: body.formats,
+      formats: validFormats,
       brand: body.brand || {},
       slots,
       createdBy: user ? user.id : p.created_by

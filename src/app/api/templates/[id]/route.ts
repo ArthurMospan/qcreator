@@ -7,6 +7,20 @@ async function ownProject(user: any, id: string) {
   return p && p.org_id === user.org_id ? p : null;
 }
 
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return NextResponse.json({ error: 'Не авторизовано' }, { status: 401 });
+    const t = await db().getTemplate(id);
+    if (!t || !(await ownProject(user, t.project_id))) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    return NextResponse.json({ template: t }, { status: 200 });
+  } catch (error) {
+    console.error('Get template error:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {

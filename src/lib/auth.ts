@@ -1,7 +1,9 @@
 import crypto from 'crypto';
 import { db } from '../../db';
 
-const SECRET = process.env.QC_SECRET || 'qcreator-dev-secret-change-me';
+const rawSecret = process.env.QC_SECRET;
+if (!rawSecret) throw new Error('QC_SECRET env variable is required');
+const SECRET = rawSecret;
 
 const b64 = (s: string) => Buffer.from(s).toString('base64url');
 const unb64 = (s: string) => Buffer.from(s, 'base64url').toString();
