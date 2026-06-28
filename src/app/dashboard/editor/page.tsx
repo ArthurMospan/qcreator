@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2, ArrowLeft, Download, Save, CheckCircle, SlidersHorizontal, Image as ImageIcon, Type, Palette } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
+import { LayoutRenderer } from '@/components/LayoutRenderer';
 
 const FORMATS: Record<string, {w: number, h: number, label: string, ratio: string}> = {
   ig_portrait: { w: 1080, h: 1350, label: 'Пост', ratio: '4:5' },
@@ -233,6 +234,10 @@ function EditorContent() {
   const f = FORMATS[design.format] ?? FORMATS['ig_square'];
   const u = f.w / 1080;
   const isStory = design.format === 'ig_story';
+  // If template has a Figma layout tree, scale it to fit the chosen format width
+  const layoutScale = template.layout
+    ? f.w / (template.layout.width || f.w)
+    : null;
 
   return (
     <div className="flex flex-col h-screen bg-[#1f1f1f] overflow-hidden text-[#ededed]">
@@ -440,42 +445,53 @@ function EditorContent() {
                   borderRadius: isStory ? '32px' : '0px',
                 }}
               >
-              {/* Fallback Renderer Canvas */}
-              <div style={{ position: 'absolute', inset: 0, padding: (isStory ? 70 : 64) * u, display: 'flex', flexDirection: 'column', zIndex: 2 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 * u }}>
-                  <span style={{ fontSize: 38 * u, fontWeight: 'bold', color: template.brand.primary, letterSpacing: '-0.02em' }}>{template.brand.logoText}</span>
-                  <span style={{ fontSize: 17 * u, color: template.brand.primary, opacity: 0.7 }}>{template.brand.tagline}</span>
-                </div>
+              {/* Figma layout renderer */}
+              {template.layout && layoutScale !== null ? (
+                <LayoutRenderer
+                  layout={template.layout}
+                  slide={s}
+                  scale={layoutScale}
+                />
+              ) : (
+                /* Fallback generic renderer for templates without a Figma layout */
+                <>
+                  <div style={{ position: 'absolute', inset: 0, padding: (isStory ? 70 : 64) * u, display: 'flex', flexDirection: 'column', zIndex: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 * u }}>
+                      <span style={{ fontSize: 38 * u, fontWeight: 'bold', color: template.brand.primary, letterSpacing: '-0.02em' }}>{template.brand.logoText}</span>
+                      <span style={{ fontSize: 17 * u, color: template.brand.primary, opacity: 0.7 }}>{template.brand.tagline}</span>
+                    </div>
 
-                {template.slots.photo.enabled && !isStory && (
-                  <div style={{ flex: 1, marginTop: 30 * u, borderRadius: 24 * u, backgroundColor: '#e5e5e5', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
-                )}
+                    {template.slots.photo.enabled && !isStory && (
+                      <div style={{ flex: 1, marginTop: 30 * u, borderRadius: 24 * u, backgroundColor: '#e5e5e5', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+                    )}
 
-                <div style={{ marginTop: isStory ? 'auto' : (template.slots.photo.enabled ? 30 * u : 'auto'), display: 'flex', flexDirection: 'column', gap: 20 * u, alignItems: 'flex-start' }}>
-                  <div style={{ background: s.plate, color: readable(s.plate), fontSize: 58 * u, fontWeight: '800', padding: `${20 * u}px ${28 * u}px`, borderRadius: 16 * u, lineHeight: 1.08, letterSpacing: '-0.03em' }}>
-                    {s.headline || ' '}
+                    <div style={{ marginTop: isStory ? 'auto' : (template.slots.photo.enabled ? 30 * u : 'auto'), display: 'flex', flexDirection: 'column', gap: 20 * u, alignItems: 'flex-start' }}>
+                      <div style={{ background: s.plate, color: readable(s.plate), fontSize: 58 * u, fontWeight: '800', padding: `${20 * u}px ${28 * u}px`, borderRadius: 16 * u, lineHeight: 1.08, letterSpacing: '-0.03em' }}>
+                        {s.headline || ' '}
+                      </div>
+                      {template.slots.body.enabled && s.showBody && (
+                        <div style={{ fontSize: 26 * u, lineHeight: 1.4, color: isStory ? '#fff' : template.brand.primary, opacity: 0.9 }}>
+                          {s.body}
+                        </div>
+                      )}
+                      {template.slots.cta.enabled && s.showCta && (
+                        <div style={{ background: template.brand.accent, color: readable(template.brand.accent), fontSize: 25 * u, fontWeight: '600', padding: `${15 * u}px ${32 * u}px`, borderRadius: 999 }}>
+                          {s.cta}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {template.slots.body.enabled && s.showBody && (
-                    <div style={{ fontSize: 26 * u, lineHeight: 1.4, color: isStory ? '#fff' : template.brand.primary, opacity: 0.9 }}>
-                      {s.body}
-                    </div>
-                  )}
-                  {template.slots.cta.enabled && s.showCta && (
-                    <div style={{ background: template.brand.accent, color: readable(template.brand.accent), fontSize: 25 * u, fontWeight: '600', padding: `${15 * u}px ${32 * u}px`, borderRadius: 999 }}>
-                      {s.cta}
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {isStory && template.slots.photo.enabled && (
-                 <div style={{ position: 'absolute', inset: 0, zIndex: 0, backgroundColor: '#222', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
-              )}
+                  {isStory && template.slots.photo.enabled && (
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 0, backgroundColor: '#222', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+                  )}
 
-              <div style={{ position: 'absolute', width: 520 * u, height: 520 * u, top: -160 * u, right: -160 * u, background: template.brand.primary, opacity: 0.05, borderRadius: '50%', zIndex: 1 }} />
-              <div style={{ position: 'absolute', width: 360 * u, height: 360 * u, bottom: -120 * u, left: -120 * u, background: template.brand.accent, opacity: 0.1, borderRadius: '50%', zIndex: 1 }} />
-              {isStory && (
-                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 400 * u, background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)', zIndex: 1 }} />
+                  <div style={{ position: 'absolute', width: 520 * u, height: 520 * u, top: -160 * u, right: -160 * u, background: template.brand.primary, opacity: 0.05, borderRadius: '50%', zIndex: 1 }} />
+                  <div style={{ position: 'absolute', width: 360 * u, height: 360 * u, bottom: -120 * u, left: -120 * u, background: template.brand.accent, opacity: 0.1, borderRadius: '50%', zIndex: 1 }} />
+                  {isStory && (
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 400 * u, background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)', zIndex: 1 }} />
+                  )}
+                </>
               )}
               </div>
             </div>
