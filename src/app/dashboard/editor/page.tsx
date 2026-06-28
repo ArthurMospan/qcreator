@@ -357,28 +357,26 @@ function EditorContent() {
           </div>
         </aside>
 
-        {/* Center Canvas Area (Focus Mode) */}
+        {/* Center Canvas Area */}
         <main className="flex-1 bg-[#151515] relative overflow-hidden flex flex-col items-center justify-center">
-          
+
           <div className="absolute top-4 w-full text-center text-[10px] uppercase tracking-[0.2em] text-[#666] pointer-events-none">
             {f.w} × {f.h} px
           </div>
 
-          <div className="flex-1 w-full flex items-center justify-center p-8 overflow-auto">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
-              className="relative shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden flex-shrink-0"
+          <div className="flex-1 w-full flex items-center justify-center overflow-hidden">
+            <div
+              ref={stageRef}
+              className="relative shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden"
               style={{
                 width: f.w,
                 height: f.h,
-                transform: `scale(${Math.min(1, 450 / f.w, 750 / f.h)})`,
+                transform: `scale(${Math.min(1, (window?.innerWidth ? window.innerWidth - 400 : 700) / f.w, (window?.innerHeight ? window.innerHeight - 120 : 700) / f.h)})`,
                 transformOrigin: 'center center',
+                flexShrink: 0,
                 background: template.brand.bg,
                 borderRadius: isStory ? '32px' : '0px',
               }}
-              ref={stageRef}
             >
               {/* Fallback Renderer Canvas */}
               <div style={{ position: 'absolute', inset: 0, padding: (isStory ? 70 : 64) * u, display: 'flex', flexDirection: 'column', zIndex: 2 }}>
@@ -417,7 +415,7 @@ function EditorContent() {
               {isStory && (
                 <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 400 * u, background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)', zIndex: 1 }} />
               )}
-            </motion.div>
+            </div>
           </div>
         </main>
       </div>
