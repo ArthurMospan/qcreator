@@ -128,7 +128,8 @@
     try {
       const pj = await api('GET', '/api/projects');
       project = pj.projects.find(p => p.id === id); if (!project) throw new Error('Проєкт не знайдено');
-      $('#bcName').textContent = project.name; $('#pTitle').textContent = project.name;
+      $('#bcName').textContent = project.name; 
+      $('#pTitle').innerHTML = `${esc(project.name)} <span style="font-size:12px;color:var(--muted);font-weight:normal;user-select:all;cursor:pointer;background:#eee;padding:2px 6px;border-radius:4px" title="Клікни 2 рази, щоб скопіювати ID для Figma">ID: ${project.id}</span>`;
       templates = (await api('GET', `/api/projects/${id}/templates`)).templates;
       designs = (await api('GET', `/api/projects/${id}/designs`)).designs;
     } catch (e) { $('#tabBody').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
