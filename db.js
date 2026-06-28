@@ -7,7 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const DATA_DIR = path.join(__dirname, 'data');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!process.env.DATABASE_URL && !fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const uid = (p = '') => p + crypto.randomBytes(8).toString('hex');
 const now = () => new Date().toISOString();
