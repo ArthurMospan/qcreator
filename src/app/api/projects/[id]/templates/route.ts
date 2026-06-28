@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../../../db';
 import { getUserFromRequest } from '@/lib/auth';
+import { optionsResponse, withCors } from '@/lib/cors';
+
+export async function OPTIONS() { return optionsResponse(); }
 
 async function ownProject(user: any, id: string) {
   const p = await db().getProject(id);
@@ -17,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ templates: await db().listTemplates(id) }, { status: 200 });
+    return withCors(NextResponse.json({ templates: await db().listTemplates(id) }, { status: 200 }));
   } catch (error) {
     console.error('List templates error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -52,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       createdBy: user ? user.id : p.created_by
     });
 
-    return NextResponse.json({ template: t }, { status: 200 });
+    return withCors(NextResponse.json({ template: t }, { status: 200 }));
   } catch (error) {
     console.error('Create template error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

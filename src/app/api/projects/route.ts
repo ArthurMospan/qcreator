@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../db';
 import { getUserFromRequest } from '@/lib/auth';
+import { optionsResponse, withCors } from '@/lib/cors';
+
+export async function OPTIONS() { return optionsResponse(); }
 
 export async function GET(req: Request) {
   try {
@@ -15,7 +18,7 @@ export async function GET(req: Request) {
       list.push({ ...p, templates: templates.length, designs: designs.length });
     }
     
-    return NextResponse.json({ projects: list }, { status: 200 });
+    return withCors(NextResponse.json({ projects: list }, { status: 200 }));
   } catch (error) {
     console.error('List projects error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -45,7 +48,7 @@ export async function POST(req: Request) {
       createdBy: user.id 
     });
     
-    return NextResponse.json({ project }, { status: 200 });
+    return withCors(NextResponse.json({ project }, { status: 200 }));
   } catch (error) {
     console.error('Create project error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
