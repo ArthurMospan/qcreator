@@ -78,7 +78,7 @@ function hasImageFill(node: SceneNode): boolean {
   return (fills as ReadonlyArray<Paint>).some(f => f.type === 'IMAGE' && f.visible !== false);
 }
 
-async function parseNode(node: SceneNode, isSlotPhoto: (n: SceneNode) => boolean): Promise<any> {
+async function parseNode(node: SceneNode, parentAbs: { x: number; y: number } | null, isSlotPhoto: (n: SceneNode) => boolean): Promise<any> {
   if (node.visible === false) return null;
 
   const res: any = {
@@ -127,6 +127,16 @@ async function parseNode(node: SceneNode, isSlotPhoto: (n: SceneNode) => boolean
       const bytes = await (node as any).exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
       res.imageData = 'data:image/png;base64,' + figma.base64Encode(bytes);
       res.type = 'IMAGE_NODE';
+      // The exported PNG is the node's absolute (rotation-aware) bounding box.
+      // Position it by that box relative to the parent so rotated/vector nodes
+      // line up exactly instead of using the unrotated geometry x/y.
+      const bb = (node as any).absoluteBoundingBox;
+      if (bb && parentAbs) {
+        res.x = Math.round(bb.x - parentAbs.x);
+        res.y = Math.round(bb.y - parentAbs.y);
+        res.width = Math.round(bb.width);
+        res.height = Math.round(bb.height);
+      }
       return res; // baked — no need to descend into children
     } catch (e) {
       // fall through to normal handling
@@ -154,7 +164,8 @@ async function parseNode(node: SceneNode, isSlotPhoto: (n: SceneNode) => boolean
       if (css) res.background = css;
     }
 
-    const kids = await Promise.all(frame.children.map(c => parseNode(c, isSlotPhoto)));
+    const myAbs = (frame as any).absoluteBoundingBox || parentAbs;
+    const kids = await Promise.all(frame.children.map(c => parseNode(c, myAbs, isSlotPhoto)));
     res.children = kids.filter(Boolean);
   }
 
@@ -253,7 +264,7 @@ figma.ui.onmessage = async (msg) => {
     const isSlotPhoto = (n: SceneNode) => /\[(photo|image|img)\]/i.test(n.name);
 
     try {
-      const layout = await parseNode(frame, isSlotPhoto);
+      const layout = await parseNode(frame, (frame as any).absoluteBoundingBox || null, isSlotPhoto);
       const brand = extractBrand(frame);
       const slots = extractSlots(frame);
       figma.ui.postMessage({ type: 'export-result', layout, slots, brand });

@@ -99,7 +99,7 @@
           return false;
         return fills.some((f) => f.type === "IMAGE" && f.visible !== false);
       }
-      function parseNode(node, isSlotPhoto) {
+      function parseNode(node, parentAbs, isSlotPhoto) {
         return __async(this, null, function* () {
           if (node.visible === false)
             return null;
@@ -145,6 +145,13 @@
               const bytes = yield node.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
               res.imageData = "data:image/png;base64," + figma.base64Encode(bytes);
               res.type = "IMAGE_NODE";
+              const bb = node.absoluteBoundingBox;
+              if (bb && parentAbs) {
+                res.x = Math.round(bb.x - parentAbs.x);
+                res.y = Math.round(bb.y - parentAbs.y);
+                res.width = Math.round(bb.width);
+                res.height = Math.round(bb.height);
+              }
               return res;
             } catch (e) {
             }
@@ -167,7 +174,8 @@
               if (css)
                 res.background = css;
             }
-            const kids = yield Promise.all(frame.children.map((c) => parseNode(c, isSlotPhoto)));
+            const myAbs = frame.absoluteBoundingBox || parentAbs;
+            const kids = yield Promise.all(frame.children.map((c) => parseNode(c, myAbs, isSlotPhoto)));
             res.children = kids.filter(Boolean);
           }
           if (node.type === "TEXT") {
@@ -264,7 +272,7 @@
           const frame = selection[0];
           const isSlotPhoto = (n) => /\[(photo|image|img)\]/i.test(n.name);
           try {
-            const layout = yield parseNode(frame, isSlotPhoto);
+            const layout = yield parseNode(frame, frame.absoluteBoundingBox || null, isSlotPhoto);
             const brand = extractBrand(frame);
             const slots = extractSlots(frame);
             figma.ui.postMessage({ type: "export-result", layout, slots, brand });
