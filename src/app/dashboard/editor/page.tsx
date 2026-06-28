@@ -297,13 +297,8 @@ function EditorContent() {
                         : 'bg-transparent border-transparent text-[#888] hover:bg-white/5'
                     }`}
                   >
-<<<<<<< HEAD
-                    <div className="text-[10px] font-bold mb-0.5">{FORMATS[fmt]?.ratio}</div>
-                    <div className="text-xs">{FORMATS[fmt]?.label}</div>
-=======
                     <div className="text-[10px] font-bold mb-0.5">{FORMATS[fmt]?.ratio ?? fmt}</div>
                     <div className="text-xs">{FORMATS[fmt]?.label ?? fmt}</div>
->>>>>>> 2fa7b15 (feat: harden security, add demo seeding, fix SMM editor flow)
                   </button>
                 ))}
               </div>

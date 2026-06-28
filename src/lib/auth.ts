@@ -1,9 +1,11 @@
 import crypto from 'crypto';
 import { db } from '../../db';
 
-const rawSecret = process.env.QC_SECRET;
-if (!rawSecret) throw new Error('QC_SECRET env variable is required');
-const SECRET = rawSecret;
+function getSecret(): string {
+  const s = process.env.QC_SECRET;
+  if (!s) throw new Error('QC_SECRET env variable is required');
+  return s;
+}
 
 const b64 = (s: string) => Buffer.from(s).toString('base64url');
 const unb64 = (s: string) => Buffer.from(s, 'base64url').toString();
@@ -23,7 +25,7 @@ export function checkPass(pw: string, stored: string) {
 
 export function signToken(user: any) {
   const payload = b64(JSON.stringify({ id: user.id, role: user.role, t: Date.now() }));
-  const sig = crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
+  const sig = crypto.createHmac('sha256', getSecret()).update(payload).digest('base64url');
   return payload + '.' + sig;
 }
 
@@ -32,7 +34,7 @@ export async function verifyToken(token: string | null) {
   const [payload, sig] = token.split('.');
   if (!payload || !sig) return null;
   
-  const exp = crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
+  const exp = crypto.createHmac('sha256', getSecret()).update(payload).digest('base64url');
   if (exp.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(exp), Buffer.from(sig))) return null;
   
   try {
