@@ -252,7 +252,43 @@ function extractBrand(frame: FrameNode): Record<string, any> {
   return { bg, primary, accent, logoText: frame.name, tagline: '', palette: [...new Set([primary, accent, ...sorted])].slice(0, 6) };
 }
 
+// Auto-detect the closest supported format from the frame's aspect ratio.
+function detectFormat(w: number, h: number): { format: string; label: string } {
+  const ratio = w / h;
+  const candidates = [
+    { format: 'ig_square', label: '1:1 Квадрат', r: 1 },
+    { format: 'ig_portrait', label: '4:5 Пост', r: 4 / 5 },
+    { format: 'ig_story', label: '9:16 Сторіс', r: 9 / 16 },
+  ];
+  let best = candidates[0];
+  let bestDist = Infinity;
+  for (const c of candidates) {
+    const d = Math.abs(ratio - c.r);
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return { format: best.format, label: best.label };
+}
+
+// When the frame is selected, report its auto-detected format to the UI.
+function reportSelection() {
+  const sel = figma.currentPage.selection;
+  if (sel.length === 1 && (sel[0].type === 'FRAME' || sel[0].type === 'COMPONENT')) {
+    const f = sel[0] as FrameNode;
+    const det = detectFormat(f.width, f.height);
+    figma.ui.postMessage({ type: 'selection', name: f.name, width: Math.round(f.width), height: Math.round(f.height), format: det.format, label: det.label });
+  } else {
+    figma.ui.postMessage({ type: 'selection', name: null });
+  }
+}
+
+figma.on('selectionchange', reportSelection);
+
 figma.ui.onmessage = async (msg) => {
+  if (msg.type === 'ready') {
+    reportSelection();
+    return;
+  }
+
   if (msg.type === 'export') {
     const selection = figma.currentPage.selection;
     if (selection.length !== 1 || (selection[0].type !== 'FRAME' && selection[0].type !== 'COMPONENT')) {
@@ -262,12 +298,13 @@ figma.ui.onmessage = async (msg) => {
 
     const frame = selection[0] as FrameNode;
     const isSlotPhoto = (n: SceneNode) => /\[(photo|image|img)\]/i.test(n.name);
+    const det = detectFormat(frame.width, frame.height);
 
     try {
       const layout = await parseNode(frame, (frame as any).absoluteBoundingBox || null, isSlotPhoto);
       const brand = extractBrand(frame);
       const slots = extractSlots(frame);
-      figma.ui.postMessage({ type: 'export-result', layout, slots, brand });
+      figma.ui.postMessage({ type: 'export-result', layout, slots, brand, format: det.format });
     } catch (e: any) {
       figma.ui.postMessage({ type: 'error', message: 'Помилка читання фрейму: ' + (e && e.message ? e.message : e) });
     }

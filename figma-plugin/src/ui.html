@@ -151,6 +151,26 @@
   .fmt-opt .fmt-name { font-size: 11px; color: #777; margin-top: 1px; }
   .fmt-opt.sel .fmt-name { color: #ccc; }
 
+  /* ─── Selection box ─── */
+  .sel-box {
+    background: #1e1e1e;
+    border: 1.5px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+  }
+  .sel-empty { font-size: 12px; color: #555; }
+  .sel-info { width: 100%; }
+  .sel-name { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px; word-break: break-all; }
+  .sel-meta { display: flex; align-items: center; gap: 8px; }
+  .sel-meta #sel-dims { font-size: 11px; color: #777; font-family: ui-monospace, monospace; }
+  .sel-badge {
+    font-size: 10px; font-weight: 700; color: #111;
+    background: #fff; padding: 2px 8px; border-radius: 999px;
+  }
+
   /* ─── Hint box ─── */
   .hint {
     background: #1c1c1c;
@@ -235,28 +255,21 @@
   </div>
 
   <div class="field">
-    <label>Формати</label>
-    <div class="fmts" id="fmt-grid">
-      <div class="fmt-opt sel" data-fmt="ig_portrait">
-        <div class="fmt-ratio">4:5</div>
-        <div class="fmt-name">Instagram Пост</div>
-      </div>
-      <div class="fmt-opt" data-fmt="ig_square">
-        <div class="fmt-ratio">1:1</div>
-        <div class="fmt-name">Квадрат</div>
-      </div>
-      <div class="fmt-opt" data-fmt="ig_story">
-        <div class="fmt-ratio">9:16</div>
-        <div class="fmt-name">Сторіс</div>
-      </div>
-      <div class="fmt-opt" data-fmt="carousel">
-        <div class="fmt-ratio">⊞</div>
-        <div class="fmt-name">Карусель</div>
+    <label>Виділений фрейм</label>
+    <div class="sel-box" id="sel-box">
+      <div class="sel-empty" id="sel-empty">Виділіть один фрейм у Figma…</div>
+      <div class="sel-info" id="sel-info" style="display:none;">
+        <div class="sel-name" id="sel-name">—</div>
+        <div class="sel-meta">
+          <span id="sel-dims">—</span>
+          <span class="sel-badge" id="sel-fmt">—</span>
+        </div>
       </div>
     </div>
+    <div class="hint" style="margin-top:8px;">Формат визначається <b>автоматично</b> за пропорціями фрейму.</div>
   </div>
 
-  <button class="btn btn-white" id="btn-push">🚀&nbsp; Запушити шаблон</button>
+  <button class="btn btn-white" id="btn-push" disabled>🚀&nbsp; Запушити шаблон</button>
   <div class="toast" id="t-export"></div>
 </div>
 
@@ -266,7 +279,7 @@
   let TOKEN = '';
   let SELECTED_PROJ_ID = null;
   let SELECTED_PROJ_NAME = '';
-  let SELECTED_FMTS = new Set(['ig_portrait']);
+  let DETECTED_FORMAT = null;   // auto-detected from the selected frame's aspect ratio
 
   // ── Helpers ────────────────────────────────────────────────────
   function show(id) {
@@ -389,24 +402,31 @@
     await loadProjects();
   });
 
-  // Format toggle (multi-select)
-  document.getElementById('fmt-grid').addEventListener('click', e => {
-    const opt = e.target.closest('.fmt-opt');
-    if (!opt) return;
-    const fmt = opt.dataset.fmt;
-    if (SELECTED_FMTS.has(fmt)) {
-      if (SELECTED_FMTS.size === 1) return; // keep at least 1
-      SELECTED_FMTS.delete(fmt);
-      opt.classList.remove('sel');
-    } else {
-      SELECTED_FMTS.add(fmt);
-      opt.classList.add('sel');
+  // Reflect the currently selected Figma frame + its auto-detected format
+  function renderSelection(msg) {
+    const empty = document.getElementById('sel-empty');
+    const info = document.getElementById('sel-info');
+    const pushBtn = document.getElementById('btn-push');
+    if (!msg || !msg.name) {
+      DETECTED_FORMAT = null;
+      empty.style.display = 'block';
+      info.style.display = 'none';
+      pushBtn.disabled = true;
+      return;
     }
-  });
+    DETECTED_FORMAT = msg.format;
+    empty.style.display = 'none';
+    info.style.display = 'block';
+    document.getElementById('sel-name').textContent = msg.name;
+    document.getElementById('sel-dims').textContent = `${msg.width} × ${msg.height}px`;
+    document.getElementById('sel-fmt').textContent = msg.label;
+    pushBtn.disabled = false;
+  }
 
   document.getElementById('btn-push').addEventListener('click', () => {
     const name = document.getElementById('tpl-name').value.trim();
     if (!name) { toast('t-export', 'Введіть назву шаблону', 'err'); return; }
+    if (!DETECTED_FORMAT) { toast('t-export', 'Виділіть фрейм у Figma', 'err'); return; }
     clearToast('t-export');
     toast('t-export', 'Читаємо фрейм...', 'inf');
     parent.postMessage({ pluginMessage: { type: 'export' } }, '*');
@@ -416,14 +436,20 @@
     const msg = event.data.pluginMessage;
     if (!msg) return;
 
+    if (msg.type === 'selection') {
+      renderSelection(msg);
+      return;
+    }
+
     if (msg.type === 'error') {
       toast('t-export', `⚠️ ${msg.message}`, 'err');
+      loading('btn-push', false);
       return;
     }
 
     if (msg.type === 'export-result') {
       const name = document.getElementById('tpl-name').value.trim();
-      const formats = Array.from(SELECTED_FMTS);
+      const formats = [msg.format || DETECTED_FORMAT || 'ig_square'];
 
       loading('btn-push', true);
       toast('t-export', 'Відправляємо до qCreator...', 'inf');
@@ -439,12 +465,6 @@
 
         toast('t-export', `✅ Готово! "${json.template.name}" додано до проєкту.`, 'ok');
         document.getElementById('tpl-name').value = '';
-
-        // Reset format selection
-        SELECTED_FMTS = new Set(['ig_portrait']);
-        document.querySelectorAll('.fmt-opt').forEach(o => {
-          o.classList.toggle('sel', o.dataset.fmt === 'ig_portrait');
-        });
       } catch (e) {
         toast('t-export', `Помилка: ${e.message}`, 'err');
       } finally {
@@ -452,6 +472,9 @@
       }
     }
   };
+
+  // Ask the plugin for the current selection as soon as the UI loads
+  parent.postMessage({ pluginMessage: { type: 'ready' } }, '*');
 </script>
 </body>
 </html>

@@ -262,7 +262,40 @@
         const accent = sorted.find((c) => Math.abs(luminance(c) - luminance(primary)) > 0.1) || sorted[1] || "#E8B04B";
         return { bg, primary, accent, logoText: frame.name, tagline: "", palette: [.../* @__PURE__ */ new Set([primary, accent, ...sorted])].slice(0, 6) };
       }
+      function detectFormat(w, h) {
+        const ratio = w / h;
+        const candidates = [
+          { format: "ig_square", label: "1:1 \u041A\u0432\u0430\u0434\u0440\u0430\u0442", r: 1 },
+          { format: "ig_portrait", label: "4:5 \u041F\u043E\u0441\u0442", r: 4 / 5 },
+          { format: "ig_story", label: "9:16 \u0421\u0442\u043E\u0440\u0456\u0441", r: 9 / 16 }
+        ];
+        let best = candidates[0];
+        let bestDist = Infinity;
+        for (const c of candidates) {
+          const d = Math.abs(ratio - c.r);
+          if (d < bestDist) {
+            bestDist = d;
+            best = c;
+          }
+        }
+        return { format: best.format, label: best.label };
+      }
+      function reportSelection() {
+        const sel = figma.currentPage.selection;
+        if (sel.length === 1 && (sel[0].type === "FRAME" || sel[0].type === "COMPONENT")) {
+          const f = sel[0];
+          const det = detectFormat(f.width, f.height);
+          figma.ui.postMessage({ type: "selection", name: f.name, width: Math.round(f.width), height: Math.round(f.height), format: det.format, label: det.label });
+        } else {
+          figma.ui.postMessage({ type: "selection", name: null });
+        }
+      }
+      figma.on("selectionchange", reportSelection);
       figma.ui.onmessage = (msg) => __async(exports, null, function* () {
+        if (msg.type === "ready") {
+          reportSelection();
+          return;
+        }
         if (msg.type === "export") {
           const selection = figma.currentPage.selection;
           if (selection.length !== 1 || selection[0].type !== "FRAME" && selection[0].type !== "COMPONENT") {
@@ -271,11 +304,12 @@
           }
           const frame = selection[0];
           const isSlotPhoto = (n) => /\[(photo|image|img)\]/i.test(n.name);
+          const det = detectFormat(frame.width, frame.height);
           try {
             const layout = yield parseNode(frame, frame.absoluteBoundingBox || null, isSlotPhoto);
             const brand = extractBrand(frame);
             const slots = extractSlots(frame);
-            figma.ui.postMessage({ type: "export-result", layout, slots, brand });
+            figma.ui.postMessage({ type: "export-result", layout, slots, brand, format: det.format });
           } catch (e) {
             figma.ui.postMessage({ type: "error", message: "\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0447\u0438\u0442\u0430\u043D\u043D\u044F \u0444\u0440\u0435\u0439\u043C\u0443: " + (e && e.message ? e.message : e) });
           }
