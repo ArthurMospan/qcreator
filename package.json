@@ -4,11 +4,30 @@
   "description": "qCreator — locked brand-template editor for SMM. Designer builds templates, SMM produces posts.",
   "private": true,
   "scripts": {
-    "start": "node server.js",
-    "start:sqlite": "node --experimental-sqlite server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
-    "pg": "^8.11.3"
+    "framer-motion": "^11.0.0",
+    "html-to-image": "^1.11.13",
+    "lucide-react": "^0.300.0",
+    "next": "16.2.9",
+    "pg": "^8.11.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   },
-  "engines": { "node": ">=18" }
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }

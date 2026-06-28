@@ -1,0 +1,18 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/auth/login/route": "/api/auth/login",
+  "/api/auth/register/route": "/api/auth/register",
+  "/api/designs/[id]/route": "/api/designs/[id]",
+  "/api/me/route": "/api/me",
+  "/api/projects/[id]/designs/route": "/api/projects/[id]/designs",
+  "/api/projects/[id]/route": "/api/projects/[id]",
+  "/api/projects/[id]/templates/route": "/api/projects/[id]/templates",
+  "/api/projects/route": "/api/projects",
+  "/api/templates/[id]/route": "/api/templates/[id]",
+  "/dashboard/editor/page": "/dashboard/editor",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/projects/[id]/page": "/dashboard/projects/[id]",
+  "/favicon.ico/route": "/favicon.ico",
+  "/page": "/"
+}
