@@ -52,12 +52,15 @@ function EditorContent() {
   const normalizeTemplate = (t: any) => {
     const brand = t.brand || {};
     const slots = t.slots || {};
+    // The Figma layout tree is stored inside slots.layout by the create route
+    const layout = t.layout || slots.layout || null;
     // Filter out any format keys that the editor doesn't support
     const knownFormats = (Array.isArray(t.formats) ? t.formats : []).filter(
       (f: string) => f in FORMATS
     );
     return {
       ...t,
+      layout,
       formats: knownFormats.length > 0 ? knownFormats : ['ig_square'],
       brand: {
         bg: brand.bg || '#1a1a1a',
@@ -197,7 +200,11 @@ function EditorContent() {
     if (!stageRef.current) return;
     try {
       const f = FORMATS[design.format] ?? FORMATS['ig_square'];
-      const url = await htmlToImage.toPng(stageRef.current, { width: f.w, height: f.h, pixelRatio: 1 });
+      const w = f.w;
+      const h = template?.layout?.width
+        ? Math.round((template.layout.height || f.h) * (f.w / template.layout.width))
+        : f.h;
+      const url = await htmlToImage.toPng(stageRef.current, { width: w, height: h, pixelRatio: 2 });
       const a = document.createElement('a');
       a.download = `${design.name}.png`;
       a.href = url;
@@ -234,10 +241,14 @@ function EditorContent() {
   const f = FORMATS[design.format] ?? FORMATS['ig_square'];
   const u = f.w / 1080;
   const isStory = design.format === 'ig_story';
-  // If template has a Figma layout tree, scale it to fit the chosen format width
-  const layoutScale = template.layout
-    ? f.w / (template.layout.width || f.w)
-    : null;
+  // If template has a Figma layout tree, scale it to fit the chosen format width.
+  // The stage then follows the layout's native aspect ratio.
+  const hasLayout = !!(template.layout && template.layout.width);
+  const layoutScale = hasLayout ? f.w / template.layout.width : null;
+  const stageW = f.w;
+  const stageH = hasLayout
+    ? Math.round((template.layout.height || f.h) * (layoutScale as number))
+    : f.h;
 
   return (
     <div className="flex flex-col h-screen bg-[#1f1f1f] overflow-hidden text-[#ededed]">
@@ -424,16 +435,16 @@ function EditorContent() {
         <main className="flex-1 bg-[#151515] relative overflow-hidden flex flex-col items-center justify-center">
 
           <div className="absolute top-4 w-full text-center text-[10px] uppercase tracking-[0.2em] text-[#666] pointer-events-none">
-            {f.w} × {f.h} px
+            {stageW} × {stageH} px
           </div>
 
           <div className="flex-1 w-full flex items-center justify-center overflow-hidden">
             <div
               className="relative flex-shrink-0"
               style={{
-                width: f.w,
-                height: f.h,
-                transform: `scale(${Math.min(1, (typeof window !== 'undefined' ? window.innerWidth - 400 : 700) / f.w, (typeof window !== 'undefined' ? window.innerHeight - 120 : 700) / f.h)})`,
+                width: stageW,
+                height: stageH,
+                transform: `scale(${Math.min(1, (typeof window !== 'undefined' ? window.innerWidth - 400 : 700) / stageW, (typeof window !== 'undefined' ? window.innerHeight - 120 : 700) / stageH)})`,
                 transformOrigin: 'center center',
               }}
             >
@@ -441,8 +452,8 @@ function EditorContent() {
                 ref={stageRef}
                 className="relative shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden w-full h-full"
                 style={{
-                  background: template.brand.bg,
-                  borderRadius: isStory ? '32px' : '0px',
+                  background: hasLayout ? (template.layout.background || template.brand.bg) : template.brand.bg,
+                  borderRadius: isStory && !hasLayout ? '32px' : '0px',
                 }}
               >
               {/* Figma layout renderer */}
