@@ -366,18 +366,22 @@ function EditorContent() {
 
           <div className="flex-1 w-full flex items-center justify-center overflow-hidden">
             <div
-              ref={stageRef}
-              className="relative shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden"
+              className="relative flex-shrink-0"
               style={{
                 width: f.w,
                 height: f.h,
                 transform: `scale(${Math.min(1, (window?.innerWidth ? window.innerWidth - 400 : 700) / f.w, (window?.innerHeight ? window.innerHeight - 120 : 700) / f.h)})`,
                 transformOrigin: 'center center',
-                flexShrink: 0,
-                background: template.brand.bg,
-                borderRadius: isStory ? '32px' : '0px',
               }}
             >
+              <div
+                ref={stageRef}
+                className="relative shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden w-full h-full"
+                style={{
+                  background: template.brand.bg,
+                  borderRadius: isStory ? '32px' : '0px',
+                }}
+              >
               {/* Fallback Renderer Canvas */}
               <div style={{ position: 'absolute', inset: 0, padding: (isStory ? 70 : 64) * u, display: 'flex', flexDirection: 'column', zIndex: 2 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 * u }}>
@@ -415,6 +419,7 @@ function EditorContent() {
               {isStory && (
                 <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 400 * u, background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)', zIndex: 1 }} />
               )}
+              </div>
             </div>
           </div>
         </main>
