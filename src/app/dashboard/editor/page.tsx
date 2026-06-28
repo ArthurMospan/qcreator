@@ -53,7 +53,7 @@ function EditorContent() {
     const slots = t.slots || {};
     return {
       ...t,
-      formats: Array.isArray(t.formats) && t.formats.length > 0 ? t.formats : ['ig_square'],
+      formats: (() => { const known = (Array.isArray(t.formats) ? t.formats : []).filter((ff: string) => FORMATS[ff]); return known.length ? known : ['ig_square']; })(),
       brand: {
         bg: brand.bg || '#1a1a1a',
         primary: brand.primary || '#ffffff',
@@ -239,8 +239,8 @@ function EditorContent() {
                         : 'bg-transparent border-transparent text-[#888] hover:bg-white/5'
                     }`}
                   >
-                    <div className="text-[10px] font-bold mb-0.5">{FORMATS[fmt].ratio}</div>
-                    <div className="text-xs">{FORMATS[fmt].label}</div>
+                    <div className="text-[10px] font-bold mb-0.5">{FORMATS[fmt]?.ratio}</div>
+                    <div className="text-xs">{FORMATS[fmt]?.label}</div>
                   </button>
                 ))}
               </div>
