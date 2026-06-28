@@ -100,14 +100,17 @@ R('GET', '/api/projects/:id/templates', async (req, res, ctx) => {
   send(res, 200, { templates: await db().listTemplates(ctx.params.id) });
 }, { auth: true });
 R('POST', '/api/projects/:id/templates', async (req, res, ctx) => {
-  if (ctx.user.role !== 'designer') return send(res, 403, { error: 'Лише дизайнер створює шаблони' });
-  if (!(await ownProject(ctx, ctx.params.id))) return send(res, 404, { error: 'not found' });
+  const p = await db().getProject(ctx.params.id);
+  if (!p) return send(res, 404, { error: 'not found' });
+  if (ctx.user && ctx.user.role !== 'designer') return send(res, 403, { error: 'Лише дизайнер створює шаблони' });
+  if (ctx.user && p.org_id !== ctx.user.org_id) return send(res, 404, { error: 'not found' });
+  
   const b = ctx.body; if (!b.name || !Array.isArray(b.formats) || !b.formats.length) return send(res, 400, { error: 'Вкажи назву і хоча б один формат' });
   const slots = b.slots || {};
   if (b.layout) slots.layout = b.layout;
-  const t = await db().createTemplate({ projectId: ctx.params.id, name: b.name.trim(), formats: b.formats, brand: b.brand || {}, slots, createdBy: ctx.user.id });
+  const t = await db().createTemplate({ projectId: p.id, name: b.name.trim(), formats: b.formats, brand: b.brand || {}, slots, createdBy: ctx.user ? ctx.user.id : p.created_by });
   send(res, 200, { template: t });
-}, { auth: true });
+}, { auth: 'optional' });
 R('PUT', '/api/templates/:id', async (req, res, ctx) => {
   if (ctx.user.role !== 'designer') return send(res, 403, { error: 'Лише дизайнер' });
   const t = await db().getTemplate(ctx.params.id); if (!t || !(await ownProject(ctx, t.project_id))) return send(res, 404, { error: 'not found' });
@@ -146,6 +149,11 @@ R('DELETE', '/api/designs/:id', async (req, res, ctx) => {
 
 /* ---------- server ---------- */
 const server = http.createServer(async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+
   if (!req.url.startsWith('/api/')) return serveStatic(req, res);
   const m = match(req.method, req.url);
   if (!m) return send(res, 404, { error: 'Unknown endpoint' });
@@ -154,7 +162,7 @@ const server = http.createServer(async (req, res) => {
   if (m.r.opts.auth) {
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     ctx.user = await verifyToken(token);
-    if (!ctx.user) return send(res, 401, { error: 'Не авторизовано' });
+    if (!ctx.user && m.r.opts.auth !== 'optional') return send(res, 401, { error: 'Не авторизовано' });
   }
   try { await m.r.handler(req, res, ctx); }
   catch (e) { console.error(e); if (!res.headersSent) send(res, 500, { error: 'Server error' }); }
