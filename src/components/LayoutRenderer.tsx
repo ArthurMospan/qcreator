@@ -178,10 +178,10 @@ export function LayoutRenderer({ layout, slide, scale }: Props) {
           style.backgroundSize = 'cover';
           style.backgroundPosition = 'center';
         } else {
-          style.background = node.background || '#d1d5db';
+          style.background = node.background || node.backgroundColor || '#d1d5db';
         }
       } else {
-        style.background = node.background || 'transparent';
+        style.background = node.background || node.backgroundColor || 'transparent';
       }
       return <div key={node.id} style={style} />;
     }
@@ -191,7 +191,7 @@ export function LayoutRenderer({ layout, slide, scale }: Props) {
     const isAuto = !!node.layoutMode && node.layoutMode !== 'NONE';
     const style: React.CSSProperties = {
       ...base,
-      background: node.background || 'transparent',
+      background: node.background || node.backgroundColor || 'transparent',
       borderRadius: (node.cornerRadius || 0) * sc,
       overflow: node.clipsContent ? 'hidden' : 'visible',
     };
