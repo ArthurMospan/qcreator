@@ -1,0 +1,11 @@
+{
+  "name": "qcreator",
+  "version": "0.1.0",
+  "description": "qCreator — locked brand-template editor for SMM. Designer builds templates, SMM produces posts.",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "start:sqlite": "node --experimental-sqlite server.js"
+  },
+  "engines": { "node": ">=18" }
+}

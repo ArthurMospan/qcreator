@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: qcreator
+    runtime: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    autoDeploy: true
+    envVars:
+      - key: QC_SECRET
+        generateValue: true
