@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Image as ImageIcon, LayoutTemplate, Loader2, Figma, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, LayoutTemplate, Loader2, Figma, RefreshCw, ExternalLink, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 type Template = { id: string; name: string; formats: string[]; created_at: string };
 type Design = { id: string; name: string; saved_at: string };
 type Project = { id: string; name: string; hue: string };
+
+const FORMAT_LABELS: Record<string, string> = {
+  ig_portrait: '4:5',
+  ig_square: '1:1',
+  ig_story: '9:16',
+  carousel: '⊞',
+};
 
 export default function ProjectDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -21,12 +28,10 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
   const [designs, setDesigns] = useState<Design[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [prevTemplateCount, setPrevTemplateCount] = useState(0);
+  const [newBadge, setNewBadge] = useState(false);
 
-  useEffect(() => {
-    if (token && id) fetchData();
-  }, [token, id]);
-
-  const fetchData = async (quiet = false) => {
+  const fetchData = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     else setRefreshing(true);
     try {
@@ -35,13 +40,17 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
         fetch(`/api/projects/${id}/templates`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/projects/${id}/designs`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
-
       const pData = await pRes.json();
       const tData = await tRes.json();
       const dData = await dRes.json();
-
       if (pData.project) setProject(pData.project);
-      if (tData.templates) setTemplates(tData.templates);
+      if (tData.templates) {
+        const newCount = tData.templates.length;
+        setTemplates(prev => {
+          if (quiet && newCount > prev.length) setNewBadge(true);
+          return tData.templates;
+        });
+      }
       if (dData.designs) setDesigns(dData.designs);
     } catch (e) {
       console.error(e);
@@ -49,14 +58,18 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [id, token]);
 
-  const FORMAT_LABELS: Record<string, string> = {
-    ig_portrait: '4:5',
-    ig_square: '1:1',
-    ig_story: '9:16',
-    carousel: '⊞',
-  };
+  useEffect(() => {
+    if (token && id) fetchData();
+  }, [token, id, fetchData]);
+
+  // Auto-poll every 15s so new templates appear without manual refresh
+  useEffect(() => {
+    if (!token || !id) return;
+    const interval = setInterval(() => fetchData(true), 15000);
+    return () => clearInterval(interval);
+  }, [token, id, fetchData]);
 
   if (loading) {
     return (
@@ -75,7 +88,7 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="w-full max-w-5xl mx-auto">
-      {/* Back + Title */}
+      {/* Header */}
       <div className="flex items-center gap-4 mb-10">
         <button
           onClick={() => router.push('/dashboard')}
@@ -88,29 +101,35 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
           <p className="text-[#a1a1a1] text-sm mt-1">Шаблони та готові дизайни</p>
         </div>
         <button
-          onClick={() => fetchData(true)}
+          onClick={() => { setNewBadge(false); fetchData(true); }}
           title="Оновити"
-          className="w-9 h-9 rounded-full flex items-center justify-center text-[#888] hover:text-white hover:bg-white/5 transition-colors"
+          className="relative w-9 h-9 rounded-full flex items-center justify-center text-[#888] hover:text-white hover:bg-white/5 transition-colors"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {newBadge && (
+            <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-[#1f1f1f]" />
+          )}
         </button>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-10">
 
-        {/* ── Templates ────────────────────────── */}
+        {/* ── Templates ── */}
         <section>
           <div className="flex justify-between items-end mb-6">
             <div>
               <h2 className="text-xl font-medium text-white flex items-center gap-2">
                 <LayoutTemplate className="w-5 h-5" />
                 Шаблони
+                {newBadge && (
+                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-semibold">New!</span>
+                )}
               </h2>
-              <p className="text-[#888] text-xs mt-1">Додаються через Figma-плагін</p>
+              <p className="text-[#888] text-xs mt-1">Додаються через Figma-плагін · оновлюється кожні 15с</p>
             </div>
           </div>
 
-          {/* Plugin Instructions Card — always visible for designers */}
+          {/* Plugin hint for designers */}
           {user?.role === 'designer' && (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
@@ -124,15 +143,14 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
                 <h4 className="text-sm font-semibold text-white mb-1">Додати шаблон з Figma</h4>
                 <ol className="text-xs text-[#888] space-y-1 list-decimal list-inside leading-relaxed">
                   <li>Відкрийте плагін <span className="text-[#ccc]">qCreator</span> у Figma</li>
-                  <li>Увійдіть з вашим email та паролем</li>
-                  <li>Виділіть фрейм → Оберіть цей проєкт → Натисніть «Запушити»</li>
-                  <li>Натисніть <span className="text-white">↻ оновити</span> на цій сторінці</li>
+                  <li>Виберіть проєкт <span className="text-white font-semibold">{project.name}</span></li>
+                  <li>Виділіть фрейм → введіть назву → «Запушити»</li>
+                  <li>Шаблон з'явиться тут автоматично</li>
                 </ol>
               </div>
             </motion.div>
           )}
 
-          {/* Template list */}
           {templates.length === 0 ? (
             <div className="bg-[#2a2a2a]/30 border border-white/5 border-dashed rounded-2xl p-8 text-center">
               <p className="text-[#888] text-sm">Шаблонів ще немає.</p>
@@ -148,38 +166,45 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
-                  className="bg-[#2a2a2a] p-4 rounded-2xl border border-white/5 flex items-center justify-between group"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#1f1f1f] flex items-center justify-center border border-white/5">
-                      <LayoutTemplate className="w-5 h-5 text-[#666]" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-white text-sm">{t.name}</h4>
-                      <div className="flex gap-1 mt-1">
-                        {(t.formats || []).map(f => (
-                          <span key={f} className="text-[10px] font-bold bg-[#333] text-[#888] px-1.5 py-0.5 rounded-md">
-                            {FORMAT_LABELS[f] || f}
-                          </span>
-                        ))}
+                  <Link
+                    href={`/dashboard/editor?templateId=${t.id}`}
+                    className="bg-[#2a2a2a] p-4 rounded-2xl border border-white/5 hover:border-white/20 transition-all flex items-center justify-between group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#1f1f1f] flex items-center justify-center border border-white/5 flex-shrink-0">
+                        <LayoutTemplate className="w-5 h-5 text-[#666] group-hover:text-white transition-colors" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-white text-sm group-hover:text-white transition-colors">{t.name}</h4>
+                        <div className="flex gap-1 mt-1">
+                          {(t.formats || []).map(f => (
+                            <span key={f} className="text-[10px] font-bold bg-[#333] text-[#888] px-1.5 py-0.5 rounded-md">
+                              {FORMAT_LABELS[f] || f}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {user?.role === 'smm' && (
-                    <Link
-                      href={`/dashboard/editor?templateId=${t.id}`}
-                      className="opacity-0 group-hover:opacity-100 bg-white text-black px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:bg-[#e0e0e0]"
-                    >
-                      Створити →
-                    </Link>
-                  )}
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {user?.role === 'smm' ? (
+                        <span className="bg-white text-black px-3 py-1.5 rounded-lg text-xs font-semibold">
+                          Створити →
+                        </span>
+                      ) : (
+                        <span className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1">
+                          <Pencil className="w-3 h-3" /> Відкрити
+                        </span>
+                      )}
+                    </div>
+                  </Link>
                 </motion.div>
               ))}
             </div>
           )}
         </section>
 
-        {/* ── Designs ──────────────────────────── */}
+        {/* ── Designs ── */}
         <section>
           <div className="flex justify-between items-end mb-6">
             <div>
