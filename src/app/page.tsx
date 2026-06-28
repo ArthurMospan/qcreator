@@ -57,32 +57,22 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-background">
-      {/* Decorative background blobs */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[40%] rounded-full bg-[#ffb199]/10 blur-[100px]" />
-      </div>
-
+    <main className="min-h-screen w-full flex items-center justify-center p-6 relative bg-[#1f1f1f] text-[#ededed]">
+      {/* Ultra minimalist background noise or nothing, just pure #1f1f1f */}
+      
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md bg-card/80 backdrop-blur-xl border border-white/5 rounded-3xl p-8 shadow-2xl relative z-10"
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="w-full max-w-[400px]"
       >
-        <div className="flex items-center gap-2 mb-8 justify-center">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-[#ffb199] flex items-center justify-center shadow-lg">
-            <Sparkles className="text-white w-5 h-5" />
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 shadow-xl">
+            <Sparkles className="text-white w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">qCreator</h1>
-        </div>
-
-        <div className="text-center mb-8">
-          <h2 className="text-xl font-semibold mb-2">
-            {isLogin ? 'З поверненням' : 'Створити акаунт'}
-          </h2>
-          <p className="text-gray-400 text-sm">
-            Платформа для генерації бренд-контенту
+          <h1 className="text-3xl font-semibold tracking-tight text-white">qCreator</h1>
+          <p className="text-[#a1a1a1] mt-2 text-sm">
+            Генерація бренд-контенту
           </p>
         </div>
 
@@ -99,12 +89,12 @@ export default function Home() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Ім'я або назва компанії</label>
+              <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5 uppercase tracking-wider">Ім'я компанії</label>
               <input 
                 type="text" 
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                className="w-full bg-[#2a2a2a] border border-transparent rounded-xl px-4 py-3 text-white placeholder-[#666] focus:outline-none focus:border-[#444] focus:bg-[#333] transition-all"
                 placeholder="AURA Skincare"
                 required={!isLogin}
               />
@@ -112,24 +102,24 @@ export default function Home() {
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+            <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5 uppercase tracking-wider">Електронна пошта</label>
             <input 
               type="email" 
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+              className="w-full bg-[#2a2a2a] border border-transparent rounded-xl px-4 py-3 text-white placeholder-[#666] focus:outline-none focus:border-[#444] focus:bg-[#333] transition-all"
               placeholder="name@example.com"
               required
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Пароль</label>
+            <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5 uppercase tracking-wider">Пароль</label>
             <input 
               type="password" 
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+              className="w-full bg-[#2a2a2a] border border-transparent rounded-xl px-4 py-3 text-white placeholder-[#666] focus:outline-none focus:border-[#444] focus:bg-[#333] transition-all"
               placeholder="••••••••"
               required
             />
@@ -138,7 +128,7 @@ export default function Home() {
           <button 
             type="submit" 
             disabled={isSubmitting}
-            className="w-full bg-white text-black hover:bg-gray-100 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-6 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full bg-white text-black hover:bg-[#e0e0e0] font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-8 disabled:opacity-70 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(255,255,255,0.1)]"
           >
             {isSubmitting ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -151,20 +141,22 @@ export default function Home() {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-400">
-          {isLogin ? 'Ще не маєте акаунту? ' : 'Вже є акаунт? '}
+        <div className="mt-8 text-center text-sm text-[#888]">
+          {isLogin ? 'Не маєте акаунту? ' : 'Вже зареєстровані? '}
           <button 
             type="button"
             onClick={() => { setIsLogin(!isLogin); setError(''); }}
-            className="text-primary hover:text-white transition-colors"
+            className="text-white hover:underline transition-all font-medium"
           >
             {isLogin ? 'Створити' : 'Увійти'}
           </button>
         </div>
         
         {isLogin && (
-          <div className="mt-6 pt-6 border-t border-white/5 text-xs text-gray-500 text-center">
-            <p>Демо акаунт: designer@aura.co / demo1234</p>
+          <div className="mt-8 p-4 bg-[#2a2a2a]/50 rounded-xl border border-white/5 text-xs text-[#888] text-center flex flex-col gap-1">
+            <span className="font-medium text-[#a1a1a1] uppercase tracking-wider text-[10px] mb-1">Демо доступ</span>
+            <span>designer@aura.co</span>
+            <span>demo1234</span>
           </div>
         )}
       </motion.div>

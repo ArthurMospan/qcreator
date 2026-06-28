@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Folder, Loader2 } from 'lucide-react';
+import { Plus, Folder, Loader2, MoreVertical, LayoutTemplate, Image as ImageIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 type Project = {
@@ -65,57 +65,61 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return <div className="flex justify-center mt-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-[#888]" />
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
+    <div className="w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-10 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Проєкти</h1>
-          <p className="text-gray-400 mt-1">Оберіть проєкт або створіть новий</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-white mb-2">Ваші проєкти</h1>
+          <p className="text-[#a1a1a1] text-sm">Організуйте свої шаблони та дизайни по брендах.</p>
         </div>
         
         {user?.role === 'designer' && (
           <button 
             onClick={() => setShowNew(true)}
-            className="bg-white text-black hover:bg-gray-200 px-5 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2"
+            className="bg-white text-black hover:bg-[#e0e0e0] px-5 py-2.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 shadow-lg"
           >
-            <Plus className="w-5 h-5" />
-            Створити проєкт
+            <Plus className="w-4 h-4" />
+            Новий проєкт
           </button>
         )}
       </div>
 
       {showNew && (
         <motion.div 
-          initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-          animate={{ opacity: 1, height: 'auto', marginBottom: 32 }}
-          className="bg-card/50 border border-white/10 p-6 rounded-2xl"
+          initial={{ opacity: 0, y: -10, height: 0 }}
+          animate={{ opacity: 1, y: 0, height: 'auto' }}
+          className="bg-[#2a2a2a] p-6 rounded-2xl mb-8 border border-white/5"
         >
-          <form onSubmit={createProject} className="flex flex-col sm:flex-row gap-4">
+          <form onSubmit={createProject} className="flex flex-col sm:flex-row gap-4 max-w-xl">
             <input
               type="text"
               autoFocus
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              placeholder="Назва проєкту..."
-              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary"
+              placeholder="Назва бренду чи проєкту..."
+              className="flex-1 bg-[#1f1f1f] border border-transparent rounded-xl px-4 py-3 text-white placeholder-[#666] focus:outline-none focus:border-[#444] transition-all"
             />
             <div className="flex gap-2">
               <button 
                 type="button" 
                 onClick={() => setShowNew(false)}
-                className="px-5 py-3 rounded-xl border border-white/10 hover:bg-white/5 transition-colors"
+                className="px-5 py-3 rounded-xl border border-transparent hover:bg-white/5 text-[#a1a1a1] hover:text-white transition-colors font-medium text-sm"
               >
                 Скасувати
               </button>
               <button 
                 type="submit" 
                 disabled={creating || !newName.trim()}
-                className="px-5 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-medium transition-colors disabled:opacity-50 min-w-[120px] flex justify-center"
+                className="px-5 py-3 rounded-xl bg-white hover:bg-[#e0e0e0] text-black font-medium transition-colors disabled:opacity-50 min-w-[120px] flex justify-center text-sm"
               >
-                {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Створити'}
+                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Створити'}
               </button>
             </div>
           </form>
@@ -123,33 +127,50 @@ export default function Dashboard() {
       )}
 
       {projects.length === 0 ? (
-        <div className="text-center py-20 bg-card/30 rounded-3xl border border-white/5 border-dashed">
-          <Folder className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <h3 className="text-xl font-medium mb-2">Немає проєктів</h3>
-          <p className="text-gray-400">У вас поки що немає жодного проєкту.</p>
+        <div className="text-center py-24 bg-[#2a2a2a]/30 rounded-3xl border border-white/5 border-dashed">
+          <Folder className="w-12 h-12 text-[#444] mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">Немає проєктів</h3>
+          <p className="text-[#888] text-sm">Створіть свій перший проєкт, щоб почати роботу.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map(p => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {projects.map((p, i) => (
             <motion.a
               key={p.id}
               href={`/dashboard/projects/${p.id}`}
-              whileHover={{ y: -4, scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              className="group relative overflow-hidden bg-card rounded-3xl border border-white/5 p-6 hover:shadow-2xl transition-all block cursor-pointer"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              whileHover={{ y: -4 }}
+              className="group bg-[#2a2a2a] rounded-2xl p-5 border border-white/5 hover:border-white/20 transition-all block cursor-pointer relative overflow-hidden"
             >
+              {/* Subtle accent line on top */}
               <div 
-                className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity"
+                className="absolute top-0 left-0 right-0 h-1 opacity-60"
                 style={{ background: p.hue }}
               />
-              <div className="relative z-10">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6 shadow-inner" style={{ background: p.hue }}>
-                  <Folder className="w-6 h-6 text-white drop-shadow-md" />
+              
+              <div className="flex justify-between items-start mb-8">
+                <div 
+                  className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#1f1f1f] shadow-inner border border-white/5"
+                >
+                  <Folder className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">{p.name}</h3>
-                <div className="flex gap-4 text-sm text-gray-400">
-                  <span>{p.templates} шаблонів</span>
-                  <span>{p.designs} дизайнів</span>
+                <button className="text-[#666] hover:text-white transition-colors p-1" onClick={(e) => e.preventDefault()}>
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <h3 className="text-lg font-semibold text-white mb-4 truncate">{p.name}</h3>
+              
+              <div className="flex items-center gap-4 text-xs font-medium text-[#a1a1a1]">
+                <div className="flex items-center gap-1.5 bg-[#1f1f1f] px-2.5 py-1.5 rounded-lg border border-white/5">
+                  <LayoutTemplate className="w-3.5 h-3.5 text-[#666]" />
+                  <span>{p.templates}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-[#1f1f1f] px-2.5 py-1.5 rounded-lg border border-white/5">
+                  <ImageIcon className="w-3.5 h-3.5 text-[#666]" />
+                  <span>{p.designs}</span>
                 </div>
               </div>
             </motion.a>

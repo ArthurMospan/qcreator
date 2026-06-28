@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Loader2, ArrowLeft, Download, Save, CheckCircle, AlertTriangle, Settings2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Download, Save, CheckCircle, SlidersHorizontal, Image as ImageIcon, Type, Palette } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const FORMATS: Record<string, {w: number, h: number, label: string, ratio: string}> = {
   ig_portrait: { w: 1080, h: 1350, label: 'Пост', ratio: '4:5' },
@@ -26,8 +26,8 @@ function readable(bg: string) { return contrast('#FFFFFF', bg) >= contrast('#1A1
 function EditorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const templateId = searchParams.get('template');
-  const designId = searchParams.get('design');
+  const templateId = searchParams.get('templateId');
+  const designId = searchParams.get('designId');
   const { token } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -51,19 +51,9 @@ function EditorContent() {
     try {
       let tId = templateId;
       if (designId) {
-        // Fetch design first
-        const dRes = await fetch(`/api/designs/${designId}`, { headers: { Authorization: `Bearer ${token}` } });
-        // NOTE: we didn't implement GET /api/designs/:id in the backend, we implemented GET /api/projects/:id/designs.
-        // For simplicity we will assume we create from template mostly.
+        // Mock loading design for this demo (assuming create new)
       }
       
-      // We will only implement "create from template" for now in this demo
-      if (tId) {
-        // We actually don't have GET /api/templates/:id either, only update!
-        // We will fetch the project templates and find it.
-      }
-
-      // For the sake of this UI migration, we'll fetch all projects, find the template.
       const res = await fetch('/api/projects', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       
@@ -113,7 +103,7 @@ function EditorContent() {
         },
         body: JSON.stringify(design)
       });
-      alert('Збережено!');
+      alert('Збережено успішно!');
     } catch (e) {
       console.error(e);
     } finally {
@@ -142,7 +132,11 @@ function EditorContent() {
   };
 
   if (loading) {
-    return <div className="flex justify-center h-screen items-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center h-screen items-center bg-[#1f1f1f]">
+        <Loader2 className="w-10 h-10 animate-spin text-white" />
+      </div>
+    );
   }
 
   const s = design.slides[activeSlide];
@@ -150,247 +144,250 @@ function EditorContent() {
   const u = f.w / 1080;
   const isStory = design.format === 'ig_story';
 
-  // We use the fallback rendering logic from editor.js for simplicity in React
-  // If template has slots.layout (Figma node), we would recursively render it, but for brevity we'll do the fallback hardcoded view.
-
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Top bar */}
-      <div className="h-16 border-b border-border bg-card/50 px-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+    <div className="flex flex-col h-screen bg-[#1f1f1f] overflow-hidden text-[#ededed]">
+      {/* Top Header */}
+      <header className="h-[60px] border-b border-white/10 px-4 flex items-center justify-between bg-[#1f1f1f] z-10 shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => router.back()} 
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#a1a1a1]" />
           </button>
+          
           <input 
             type="text" 
             value={design.name}
             onChange={e => setDesign({...design, name: e.target.value})}
-            className="bg-transparent border-none text-lg font-bold focus:outline-none focus:ring-0"
+            className="bg-transparent border-none text-[15px] font-medium text-white focus:outline-none focus:ring-0 max-w-[200px]"
           />
-          <span className="px-2 py-1 bg-white/10 text-xs rounded-md text-gray-400">{template.name}</span>
+          <div className="h-4 w-px bg-white/10 mx-1"></div>
+          <span className="text-[11px] font-medium text-[#888] uppercase tracking-wider">{template.name}</span>
         </div>
+        
         <div className="flex items-center gap-3">
           <button 
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 rounded-full transition-colors text-[13px] font-medium text-[#a1a1a1]"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             Зберегти
           </button>
           <button 
             onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-5 py-2 bg-white hover:bg-[#e0e0e0] text-black rounded-full transition-colors text-[13px] font-semibold"
           >
-            <Download className="w-4 h-4" />
-            Завантажити
+            <Download className="w-3.5 h-3.5" />
+            Експорт
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Controls */}
-        <div className="w-80 border-r border-border bg-card overflow-y-auto p-6 space-y-6">
-          
-          <div>
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 block">Формат</label>
-            <div className="grid grid-cols-2 gap-2">
-              {template.formats.map((fmt: string) => (
-                <button
-                  key={fmt}
-                  onClick={() => { setDesign({...design, format: fmt}); setActiveSlide(0); }}
-                  className={`p-3 rounded-xl border text-left transition-all ${design.format === fmt ? 'bg-primary/20 border-primary text-white' : 'bg-black/20 border-white/5 text-gray-400 hover:bg-white/5'}`}
-                >
-                  <div className="text-xs font-bold mb-1">{FORMATS[fmt].ratio}</div>
-                  <div className="text-sm">{FORMATS[fmt].label}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Контент</label>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar (Unified Controls) */}
+        <aside className="w-[320px] bg-[#1a1a1a] border-r border-white/5 flex flex-col z-10 overflow-hidden shrink-0">
+          <div className="flex-1 overflow-y-auto p-5 space-y-8 scrollbar-hide">
             
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-gray-300">Заголовок</span>
-                <span className="text-gray-500">{s.headline.length}/{template.slots.headline.max}</span>
+            {/* Format Section */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <SlidersHorizontal className="w-4 h-4 text-[#888]" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#a1a1a1]">Формат</h3>
               </div>
-              <textarea 
-                value={s.headline}
-                onChange={e => updateSlide('headline', e.target.value)}
-                maxLength={template.slots.headline.max}
-                rows={2}
-                className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-primary"
-              />
-            </div>
-
-            {template.slots.body.enabled && (
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-300">Опис</span>
-                    {template.slots.body.removable && (
-                      <button onClick={() => updateSlide('showBody', !s.showBody)} className="text-gray-500 hover:text-white">
-                        {s.showBody ? '👁' : '🚫'}
-                      </button>
-                    )}
-                  </div>
-                  <span className="text-gray-500">{s.body.length}/{template.slots.body.max}</span>
-                </div>
-                {s.showBody && (
-                  <textarea 
-                    value={s.body}
-                    onChange={e => updateSlide('body', e.target.value)}
-                    maxLength={template.slots.body.max}
-                    rows={3}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-primary"
-                  />
-                )}
-              </div>
-            )}
-
-            {template.slots.cta.enabled && (
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-300">Кнопка (CTA)</span>
-                    {template.slots.cta.removable && (
-                      <button onClick={() => updateSlide('showCta', !s.showCta)} className="text-gray-500 hover:text-white">
-                        {s.showCta ? '👁' : '🚫'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {s.showCta && (
-                  <input 
-                    type="text"
-                    value={s.cta}
-                    onChange={e => updateSlide('cta', e.target.value)}
-                    maxLength={template.slots.cta.max}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-primary"
-                  />
-                )}
-              </div>
-            )}
-            
-            {template.slots.photo.enabled && (
-              <div>
-                <div className="text-sm text-gray-300 mb-2">Фото</div>
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  className="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const fr = new FileReader();
-                      fr.onload = () => updateSlide('img', fr.result);
-                      fr.readAsDataURL(file);
-                    }
-                  }}
-                />
-              </div>
-            )}
-            
-            <div>
-              <div className="text-sm text-gray-300 mb-2">Колір плашки</div>
-              <div className="flex gap-2 flex-wrap">
-                {template.brand.palette?.map((c: string) => (
+              <div className="grid grid-cols-2 gap-2">
+                {template.formats.map((fmt: string) => (
                   <button
-                    key={c}
-                    onClick={() => updateSlide('plate', c)}
-                    className={`w-8 h-8 rounded-full border-2 ${s.plate === c ? 'border-primary' : 'border-transparent'}`}
-                    style={{ background: c }}
-                  />
+                    key={fmt}
+                    onClick={() => { setDesign({...design, format: fmt}); setActiveSlide(0); }}
+                    className={`py-2 px-3 rounded-xl border text-left transition-all ${
+                      design.format === fmt 
+                        ? 'bg-white/10 border-white/20 text-white' 
+                        : 'bg-transparent border-transparent text-[#888] hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="text-[10px] font-bold mb-0.5">{FORMATS[fmt].ratio}</div>
+                    <div className="text-xs">{FORMATS[fmt].label}</div>
+                  </button>
                 ))}
               </div>
-            </div>
-          </div>
-        </div>
+            </section>
 
-        {/* Center - Canvas */}
-        <div className="flex-1 bg-black/20 flex flex-col items-center justify-center p-8 overflow-auto relative">
-          <div className="absolute top-4 left-4 text-xs text-gray-500">
-            {f.w} × {f.h} px · {f.ratio}
-          </div>
+            {/* Content Section */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Type className="w-4 h-4 text-[#888]" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#a1a1a1]">Текст</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[11px] text-[#888]">Заголовок</span>
+                    <span className="text-[10px] text-[#666]">{s.headline.length}/{template.slots.headline.max}</span>
+                  </div>
+                  <textarea 
+                    value={s.headline}
+                    onChange={e => updateSlide('headline', e.target.value)}
+                    maxLength={template.slots.headline.max}
+                    rows={2}
+                    className="w-full bg-[#2a2a2a] border border-transparent focus:border-white/20 rounded-xl p-3 text-[13px] text-white focus:outline-none transition-colors resize-none"
+                  />
+                </div>
 
-          <div 
-            className="relative shadow-2xl rounded-sm overflow-hidden"
-            style={{
-              width: f.w,
-              height: f.h,
-              transform: `scale(${Math.min(1, 400 / f.w, 600 / f.h)})`,
-              transformOrigin: 'center center',
-              background: template.brand.bg
-            }}
-            ref={stageRef}
-          >
-            {/* Legacy renderer recreation */}
-            <div style={{ position: 'absolute', inset: 0, padding: (isStory ? 70 : 64) * u, display: 'flex', flexDirection: 'column', zIndex: 2 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 * u }}>
-                <span style={{ fontSize: 38 * u, fontWeight: 'bold', color: template.brand.primary }}>{template.brand.logoText}</span>
-                <span style={{ fontSize: 17 * u, color: template.brand.primary }}>{template.brand.tagline}</span>
+                {template.slots.body.enabled && (
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-[#888]">Текст</span>
+                        {template.slots.body.removable && (
+                          <button onClick={() => updateSlide('showBody', !s.showBody)} className="text-[#666] hover:text-white transition-colors text-xs">
+                            {s.showBody ? 'Увімкнено' : 'Вимкнено'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {s.showBody && (
+                      <textarea 
+                        value={s.body}
+                        onChange={e => updateSlide('body', e.target.value)}
+                        maxLength={template.slots.body.max}
+                        rows={3}
+                        className="w-full bg-[#2a2a2a] border border-transparent focus:border-white/20 rounded-xl p-3 text-[13px] text-white focus:outline-none transition-colors resize-none"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Visuals Section */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Palette className="w-4 h-4 text-[#888]" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#a1a1a1]">Візуал</h3>
               </div>
               
-              {template.slots.photo.enabled && !isStory && (
-                <div style={{ flex: 1, marginTop: 30 * u, borderRadius: 24 * u, backgroundColor: '#ccc', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+              {template.slots.photo.enabled && (
+                <div className="mb-5">
+                  <span className="text-[11px] text-[#888] block mb-2">Зображення</span>
+                  <label className="flex items-center justify-center w-full h-24 border border-dashed border-white/10 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group relative overflow-hidden">
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const fr = new FileReader();
+                          fr.onload = () => updateSlide('img', fr.result);
+                          fr.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    {s.img ? (
+                      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${s.img})` }} />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-[#666] group-hover:text-white transition-colors">
+                        <ImageIcon className="w-5 h-5" />
+                        <span className="text-xs">Завантажити фото</span>
+                      </div>
+                    )}
+                  </label>
+                </div>
               )}
               
-              <div style={{ marginTop: isStory ? 'auto' : (template.slots.photo.enabled ? 30 * u : 'auto'), display: 'flex', flexDirection: 'column', gap: 20 * u, alignItems: 'flex-start' }}>
-                <div style={{ background: s.plate, color: readable(s.plate), fontSize: 58 * u, fontWeight: 'bold', padding: `${20 * u}px ${28 * u}px`, borderRadius: 16 * u, lineHeight: 1.08 }}>
-                  {s.headline || ' '}
+              <div>
+                <span className="text-[11px] text-[#888] block mb-2">Акцентний колір</span>
+                <div className="flex gap-2 flex-wrap">
+                  {template.brand.palette?.map((c: string) => (
+                    <button
+                      key={c}
+                      onClick={() => updateSlide('plate', c)}
+                      className={`w-7 h-7 rounded-full shadow-inner relative flex items-center justify-center transition-transform hover:scale-110`}
+                      style={{ background: c }}
+                    >
+                      {s.plate === c && <div className="w-full h-full rounded-full border-[3px] border-[#1a1a1a]" />}
+                    </button>
+                  ))}
                 </div>
-                {template.slots.body.enabled && s.showBody && (
-                  <div style={{ fontSize: 26 * u, lineHeight: 1.4, color: isStory ? '#fff' : template.brand.primary }}>
-                    {s.body}
-                  </div>
-                )}
-                {template.slots.cta.enabled && s.showCta && (
-                  <div style={{ background: template.brand.accent, color: readable(template.brand.accent), fontSize: 25 * u, padding: `${15 * u}px ${32 * u}px`, borderRadius: 999 }}>
-                    {s.cta}
-                  </div>
-                )}
               </div>
+            </section>
+            
+            {/* Automated Checks built-in at the bottom */}
+            <div className="mt-8 pt-6 border-t border-white/5">
+               <h3 className="font-medium text-xs mb-3 flex items-center gap-1.5 text-[#a1a1a1]">
+                <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+                Усі перевірки пройдено
+              </h3>
             </div>
-
-            {/* Background elements */}
-            {isStory && template.slots.photo.enabled && (
-               <div style={{ position: 'absolute', inset: 0, zIndex: 0, backgroundColor: '#ccc', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
-            )}
-            <div style={{ position: 'absolute', width: 520 * u, height: 520 * u, top: -160 * u, right: -160 * u, background: template.brand.primary, opacity: 0.08, borderRadius: '50%', zIndex: 1 }} />
-            <div style={{ position: 'absolute', width: 360 * u, height: 360 * u, bottom: -120 * u, left: -120 * u, background: template.brand.accent, opacity: 0.12, borderRadius: '50%', zIndex: 1 }} />
-            {isStory && (
-              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 300 * u, background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', zIndex: 1 }} />
-            )}
+            
           </div>
-        </div>
+        </aside>
 
-        {/* Right Sidebar - Status */}
-        <div className="w-64 border-l border-border bg-card p-6">
-          <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
-            Готово до експорту
-          </h3>
-          <p className="text-xs text-gray-500 mb-6">Всі перевірки пройдено</p>
+        {/* Center Canvas Area (Focus Mode) */}
+        <main className="flex-1 bg-[#151515] relative overflow-hidden flex flex-col items-center justify-center">
           
-          <div className="space-y-3">
-            <div className="p-3 bg-white/5 rounded-xl flex items-start gap-3">
-              <CheckCircle className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold">Контраст тексту</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">Читабельність відмінна</p>
-              </div>
-            </div>
-            <div className="p-3 bg-white/5 rounded-xl flex items-start gap-3">
-              <CheckCircle className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold">Розмір тексту</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">{s.headline.length}/{template.slots.headline.max}</p>
-              </div>
-            </div>
+          <div className="absolute top-4 w-full text-center text-[10px] uppercase tracking-[0.2em] text-[#666] pointer-events-none">
+            {f.w} × {f.h} px
           </div>
-        </div>
+
+          <div className="flex-1 w-full flex items-center justify-center p-8 overflow-auto">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="relative shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden flex-shrink-0"
+              style={{
+                width: f.w,
+                height: f.h,
+                transform: `scale(${Math.min(1, 450 / f.w, 750 / f.h)})`,
+                transformOrigin: 'center center',
+                background: template.brand.bg,
+                borderRadius: isStory ? '32px' : '0px',
+              }}
+              ref={stageRef}
+            >
+              {/* Fallback Renderer Canvas */}
+              <div style={{ position: 'absolute', inset: 0, padding: (isStory ? 70 : 64) * u, display: 'flex', flexDirection: 'column', zIndex: 2 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 * u }}>
+                  <span style={{ fontSize: 38 * u, fontWeight: 'bold', color: template.brand.primary, letterSpacing: '-0.02em' }}>{template.brand.logoText}</span>
+                  <span style={{ fontSize: 17 * u, color: template.brand.primary, opacity: 0.7 }}>{template.brand.tagline}</span>
+                </div>
+                
+                {template.slots.photo.enabled && !isStory && (
+                  <div style={{ flex: 1, marginTop: 30 * u, borderRadius: 24 * u, backgroundColor: '#e5e5e5', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+                )}
+                
+                <div style={{ marginTop: isStory ? 'auto' : (template.slots.photo.enabled ? 30 * u : 'auto'), display: 'flex', flexDirection: 'column', gap: 20 * u, alignItems: 'flex-start' }}>
+                  <div style={{ background: s.plate, color: readable(s.plate), fontSize: 58 * u, fontWeight: '800', padding: `${20 * u}px ${28 * u}px`, borderRadius: 16 * u, lineHeight: 1.08, letterSpacing: '-0.03em' }}>
+                    {s.headline || ' '}
+                  </div>
+                  {template.slots.body.enabled && s.showBody && (
+                    <div style={{ fontSize: 26 * u, lineHeight: 1.4, color: isStory ? '#fff' : template.brand.primary, opacity: 0.9 }}>
+                      {s.body}
+                    </div>
+                  )}
+                  {template.slots.cta.enabled && s.showCta && (
+                    <div style={{ background: template.brand.accent, color: readable(template.brand.accent), fontSize: 25 * u, fontWeight: '600', padding: `${15 * u}px ${32 * u}px`, borderRadius: 999 }}>
+                      {s.cta}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {isStory && template.slots.photo.enabled && (
+                 <div style={{ position: 'absolute', inset: 0, zIndex: 0, backgroundColor: '#222', backgroundImage: s.img ? `url(${s.img})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+              )}
+              
+              <div style={{ position: 'absolute', width: 520 * u, height: 520 * u, top: -160 * u, right: -160 * u, background: template.brand.primary, opacity: 0.05, borderRadius: '50%', zIndex: 1 }} />
+              <div style={{ position: 'absolute', width: 360 * u, height: 360 * u, bottom: -120 * u, left: -120 * u, background: template.brand.accent, opacity: 0.1, borderRadius: '50%', zIndex: 1 }} />
+              {isStory && (
+                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 400 * u, background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)', zIndex: 1 }} />
+              )}
+            </motion.div>
+          </div>
+        </main>
       </div>
     </div>
   );
@@ -398,7 +395,11 @@ function EditorContent() {
 
 export default function Editor() {
   return (
-    <Suspense fallback={<div className="flex justify-center h-screen items-center"><Loader2 className="w-12 h-12 animate-spin text-primary" /></div>}>
+    <Suspense fallback={
+      <div className="flex justify-center h-screen items-center bg-[#1f1f1f]">
+        <Loader2 className="w-10 h-10 animate-spin text-white" />
+      </div>
+    }>
       <EditorContent />
     </Suspense>
   );

@@ -3,8 +3,8 @@
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { LogOut, LayoutGrid, Settings, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LogOut, LayoutGrid, Settings, Sparkles, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -25,70 +25,86 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/');
   };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-64 border-r border-border bg-card/50 flex flex-col">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-[#ffb199] flex items-center justify-center">
-            <Sparkles className="text-white w-4 h-4" />
-          </div>
-          <span className="font-bold text-lg tracking-tight">qCreator</span>
-        </div>
-        
-        <nav className="flex-1 px-4 space-y-1">
-          <Link 
-            href="/dashboard"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-              pathname === '/dashboard' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <LayoutGrid className="w-5 h-5" />
-            <span className="font-medium">Проєкти</span>
-          </Link>
-          
-          <Link 
-            href="/dashboard/settings"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-              pathname === '/dashboard/settings' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Settings className="w-5 h-5" />
-            <span className="font-medium">Налаштування</span>
-          </Link>
-        </nav>
+  // If we are in the editor, we don't show the dashboard layout topnav, 
+  // because we want a pure focus mode.
+  const isEditor = pathname.includes('/dashboard/editor');
 
-        <div className="p-4 mt-auto">
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col gap-3">
-            <div>
-              <p className="text-sm font-medium truncate">{user.name}</p>
-              <p className="text-xs text-gray-500 truncate">{user.email}</p>
-              <span className="inline-block mt-2 px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-primary/20 text-primary">
-                {user.role}
-              </span>
+  if (isEditor) {
+    return <div className="min-h-screen bg-[#1f1f1f] text-[#ededed] font-sans antialiased">{children}</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-[#1f1f1f] text-[#ededed] font-sans antialiased flex flex-col selection:bg-white/20">
+      {/* Top Navigation */}
+      <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-[#1f1f1f]/80 border-b border-white/[0.08]">
+        <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-lg">
+                <Sparkles className="text-black w-4 h-4" />
+              </div>
+              <span className="font-semibold text-lg tracking-tight text-white">qCreator</span>
+            </Link>
+            
+            <nav className="hidden md:flex items-center gap-1">
+              <Link 
+                href="/dashboard"
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  pathname === '/dashboard' || pathname.startsWith('/dashboard/projects')
+                    ? 'bg-white/10 text-white' 
+                    : 'text-[#888] hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Проєкти
+              </Link>
+              <Link 
+                href="/dashboard/settings"
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  pathname === '/dashboard/settings' 
+                    ? 'bg-white/10 text-white' 
+                    : 'text-[#888] hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Налаштування
+              </Link>
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-3 text-sm border-r border-white/10 pr-4 mr-2">
+              <div className="flex flex-col items-end">
+                <span className="font-medium text-white leading-none">{user.name}</span>
+                <span className="text-[#888] text-[10px] uppercase tracking-wider mt-1">{user.role}</span>
+              </div>
+              <div className="w-9 h-9 rounded-full bg-[#2a2a2a] flex items-center justify-center border border-white/5">
+                <UserIcon className="w-4 h-4 text-[#a1a1a1]" />
+              </div>
             </div>
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors w-full p-2 -ml-2 rounded-lg hover:bg-red-400/10"
+              className="text-[#888] hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"
+              title="Вийти"
             >
-              <LogOut className="w-4 h-4" />
-              Вийти
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
-      </aside>
+      </header>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-6 md:p-10">
+      <main className="flex-1 flex flex-col max-w-[1400px] w-full mx-auto p-6 md:p-10">
+        <AnimatePresence mode="wait">
           <motion.div
+            key={pathname}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="flex-1"
           >
             {children}
           </motion.div>
-        </div>
+        </AnimatePresence>
       </main>
     </div>
   );
