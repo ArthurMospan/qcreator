@@ -195,6 +195,57 @@
   function rmSlide(i) { if (cur.slides.length <= 1) return; cur.slides.splice(i, 1); if (activeSlide >= cur.slides.length) activeSlide = cur.slides.length - 1; loadSlide(); render(); }
 
   /* ---- render (pixel-exact) ---- */
+  function renderFigmaNode(node, s, u) {
+    const d = document.createElement('div');
+    d.style.position = 'absolute';
+    d.style.left = (node.x * u) + 'px';
+    d.style.top = (node.y * u) + 'px';
+    d.style.width = (node.width * u) + 'px';
+    d.style.height = (node.height * u) + 'px';
+    if (node.backgroundColor) d.style.backgroundColor = node.backgroundColor;
+    if (node.cornerRadius) d.style.borderRadius = (node.cornerRadius * u) + 'px';
+    
+    if (node.slot === 'headline') {
+      d.id = 'plate'; d.textContent = s.headline || ' ';
+      d.style.color = readable(s.plate); d.style.backgroundColor = s.plate;
+    } else if (node.slot === 'body') {
+      d.id = 'bodyEl'; d.textContent = s.body;
+      d.style.display = s.showBody ? 'block' : 'none';
+      if (s.showBody === false) return d;
+    } else if (node.slot === 'cta') {
+      d.id = 'ctaEl'; d.textContent = s.cta;
+      d.style.backgroundColor = brand.accent; d.style.color = readable(brand.accent);
+      d.style.display = s.showCta ? 'block' : 'none';
+      if (s.showCta === false) return d;
+    } else if (node.slot === 'photo') {
+      d.id = 'photo';
+      if (s.img) {
+        d.style.backgroundImage = `url(${s.img})`;
+        d.style.backgroundSize = `${s.zoom}%`;
+        d.style.backgroundPosition = 'center';
+      } else {
+        d.style.backgroundColor = '#ccc';
+        d.innerHTML = '<span id="photoPh" style="display:flex;align-items:center;justify-content:center;height:100%;color:#fff">🖼</span>';
+      }
+    } else if (node.type === 'TEXT') {
+      d.textContent = node.characters;
+      if (node.color) d.style.color = node.color;
+    }
+
+    if (node.fontSize) d.style.fontSize = (node.fontSize * u) + 'px';
+    if (node.fontName && node.fontName.family) d.style.fontFamily = node.fontName.family;
+    if (node.textAlignHorizontal) {
+      d.style.textAlign = node.textAlignHorizontal === 'CENTER' ? 'center' : node.textAlignHorizontal === 'RIGHT' ? 'right' : 'left';
+    }
+
+    if (node.children) {
+      node.children.forEach(c => {
+        d.appendChild(renderFigmaNode(c, s, u));
+      });
+    }
+    return d;
+  }
+
   function render() {
     const f = FORMATS[cur.format], s = slide(), stage = el('stage'), vp = el('viewport');
     const isStory = cur.format === 'ig_story';
@@ -206,30 +257,46 @@
     stage.style.transform = `scale(${scale})`;
     vp.style.width = Math.round(f.w * scale) + 'px'; vp.style.height = Math.round(f.h * scale) + 'px';
     el('dimLabel').textContent = `${f.w} × ${f.h} px · ${f.ratio}`;
-    const u = f.w / 1080, pad = el('spad');
-    pad.style.padding = (isStory ? 70 : 64) * u + 'px';
-    el('sLogo').style.fontSize = 38 * u + 'px'; el('sTag').style.fontSize = 17 * u + 'px';
-    el('deco1').style.cssText = `position:absolute;width:${520 * u}px;height:${520 * u}px;top:${-160 * u}px;right:${-160 * u}px;background:${brand.primary};opacity:.08;border-radius:50%;z-index:1`;
-    el('deco2').style.cssText = `position:absolute;width:${360 * u}px;height:${360 * u}px;bottom:${-120 * u}px;left:${-120 * u}px;background:${brand.accent};opacity:.12;border-radius:50%;z-index:1`;
-    const photo = el('photo'), hasPhoto = slots.photo.enabled;
-    photo.style.display = hasPhoto ? 'flex' : 'none';
-    photo.style.backgroundImage = s.img ? `url(${s.img})` : 'none';
-    photo.style.backgroundSize = s.zoom + '%';
-    el('photoPh').style.display = s.img ? 'none' : 'block';
-    if (hasPhoto && isStory) { photo.style.cssText = `position:absolute;inset:0;flex:none;z-index:0;border-radius:0;margin:0;background:${s.img ? `url(${s.img})` : '#d9cfc0'} center/${s.zoom}% no-repeat`; pad.style.justifyContent = 'flex-end'; }
-    else if (hasPhoto) { photo.style.position = 'relative'; photo.style.inset = 'auto'; photo.style.flex = '1'; photo.style.zIndex = 'auto'; photo.style.borderRadius = 24 * u + 'px'; photo.style.margin = (30 * u) + 'px 0 0'; pad.style.justifyContent = 'flex-start'; }
-    else { pad.style.justifyContent = isStory ? 'flex-end' : 'flex-start'; }
-    const copy = el('copy'); copy.style.gap = 20 * u + 'px'; copy.style.marginTop = isStory ? 'auto' : (hasPhoto ? 30 * u : 'auto') + 'px';
-    const plate = el('plate'); plate.textContent = s.headline || ' '; plate.style.background = s.plate;
-    plate.style.color = readable(s.plate); plate.style.fontSize = 58 * u + 'px'; plate.style.lineHeight = '1.08';
-    plate.style.padding = `${20 * u}px ${28 * u}px`; plate.style.borderRadius = 16 * u + 'px';
-    const bodyEl = el('bodyEl'); bodyEl.textContent = s.body; bodyEl.style.fontSize = 26 * u + 'px'; bodyEl.style.lineHeight = '1.4';
-    bodyEl.style.color = isStory ? '#fff' : brand.primary;
-    bodyEl.style.display = (slots.body.enabled && s.showBody) ? 'block' : 'none';
-    const ctaEl = el('ctaEl'); ctaEl.textContent = s.cta; ctaEl.style.background = brand.accent; ctaEl.style.color = readable(brand.accent);
-    ctaEl.style.fontSize = 25 * u + 'px'; ctaEl.style.padding = `${15 * u}px ${32 * u}px`; ctaEl.style.borderRadius = '999px';
-    ctaEl.style.display = (slots.cta.enabled && s.showCta) ? 'inline-block' : 'none';
-    el('safeBottom').style.cssText = `left:0;right:0;bottom:0;height:${300 * u}px;display:${isStory ? 'block' : 'none'}`;
+    const u = f.w / (slots.layout ? slots.layout.width : 1080);
+
+    if (slots.layout) {
+      stage.innerHTML = '';
+      const layoutEl = renderFigmaNode(slots.layout, s, u);
+      layoutEl.style.left = '0'; layoutEl.style.top = '0';
+      layoutEl.style.width = '100%'; layoutEl.style.height = '100%';
+      stage.appendChild(layoutEl);
+      const safeBottom = document.createElement('div');
+      safeBottom.id = 'safeBottom';
+      safeBottom.style.cssText = `position:absolute;left:0;right:0;bottom:0;height:${300 * u}px;display:${isStory ? 'block' : 'none'};pointer-events:none`;
+      stage.appendChild(safeBottom);
+    } else {
+      // Legacy hardcoded fallback
+      const pad = el('spad');
+      pad.style.padding = (isStory ? 70 : 64) * u + 'px';
+      el('sLogo').style.fontSize = 38 * u + 'px'; el('sTag').style.fontSize = 17 * u + 'px';
+      el('deco1').style.cssText = `position:absolute;width:${520 * u}px;height:${520 * u}px;top:${-160 * u}px;right:${-160 * u}px;background:${brand.primary};opacity:.08;border-radius:50%;z-index:1`;
+      el('deco2').style.cssText = `position:absolute;width:${360 * u}px;height:${360 * u}px;bottom:${-120 * u}px;left:${-120 * u}px;background:${brand.accent};opacity:.12;border-radius:50%;z-index:1`;
+      const photo = el('photo'), hasPhoto = slots.photo.enabled;
+      photo.style.display = hasPhoto ? 'flex' : 'none';
+      photo.style.backgroundImage = s.img ? `url(${s.img})` : 'none';
+      photo.style.backgroundSize = s.zoom + '%';
+      el('photoPh').style.display = s.img ? 'none' : 'block';
+      if (hasPhoto && isStory) { photo.style.cssText = `position:absolute;inset:0;flex:none;z-index:0;border-radius:0;margin:0;background:${s.img ? `url(${s.img})` : '#d9cfc0'} center/${s.zoom}% no-repeat`; pad.style.justifyContent = 'flex-end'; }
+      else if (hasPhoto) { photo.style.position = 'relative'; photo.style.inset = 'auto'; photo.style.flex = '1'; photo.style.zIndex = 'auto'; photo.style.borderRadius = 24 * u + 'px'; photo.style.margin = (30 * u) + 'px 0 0'; pad.style.justifyContent = 'flex-start'; }
+      else { pad.style.justifyContent = isStory ? 'flex-end' : 'flex-start'; }
+      const copy = el('copy'); copy.style.gap = 20 * u + 'px'; copy.style.marginTop = isStory ? 'auto' : (hasPhoto ? 30 * u : 'auto') + 'px';
+      const plate = el('plate'); plate.textContent = s.headline || ' '; plate.style.background = s.plate;
+      plate.style.color = readable(s.plate); plate.style.fontSize = 58 * u + 'px'; plate.style.lineHeight = '1.08';
+      plate.style.padding = `${20 * u}px ${28 * u}px`; plate.style.borderRadius = 16 * u + 'px';
+      const bodyEl = el('bodyEl'); bodyEl.textContent = s.body; bodyEl.style.fontSize = 26 * u + 'px'; bodyEl.style.lineHeight = '1.4';
+      bodyEl.style.color = isStory ? '#fff' : brand.primary;
+      bodyEl.style.display = (slots.body.enabled && s.showBody) ? 'block' : 'none';
+      const ctaEl = el('ctaEl'); ctaEl.textContent = s.cta; ctaEl.style.background = brand.accent; ctaEl.style.color = readable(brand.accent);
+      ctaEl.style.fontSize = 25 * u + 'px'; ctaEl.style.padding = `${15 * u}px ${32 * u}px`; ctaEl.style.borderRadius = '999px';
+      ctaEl.style.display = (slots.cta.enabled && s.showCta) ? 'inline-block' : 'none';
+      el('safeBottom').style.cssText = `left:0;right:0;bottom:0;height:${300 * u}px;display:${isStory ? 'block' : 'none'}`;
+    }
+
     validate(s, isStory);
     if (cur.format === 'carousel') buildFilmstrip();
   }
