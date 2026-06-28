@@ -6,6 +6,7 @@
   "ui": "src/ui.html",
   "editorType": ["figma"],
   "networkAccess": {
-    "allowedDomains": ["none"]
+    "allowedDomains": ["*"],
+    "reasoning": "Need to export template payload to qCreator backend"
   }
 }
