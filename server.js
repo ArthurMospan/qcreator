@@ -103,13 +103,18 @@ R('POST', '/api/projects/:id/templates', async (req, res, ctx) => {
   if (ctx.user.role !== 'designer') return send(res, 403, { error: 'Лише дизайнер створює шаблони' });
   if (!(await ownProject(ctx, ctx.params.id))) return send(res, 404, { error: 'not found' });
   const b = ctx.body; if (!b.name || !Array.isArray(b.formats) || !b.formats.length) return send(res, 400, { error: 'Вкажи назву і хоча б один формат' });
-  const t = await db().createTemplate({ projectId: ctx.params.id, name: b.name.trim(), formats: b.formats, brand: b.brand || {}, slots: b.slots || {}, createdBy: ctx.user.id });
+  const slots = b.slots || {};
+  if (b.layout) slots.layout = b.layout;
+  const t = await db().createTemplate({ projectId: ctx.params.id, name: b.name.trim(), formats: b.formats, brand: b.brand || {}, slots, createdBy: ctx.user.id });
   send(res, 200, { template: t });
 }, { auth: true });
 R('PUT', '/api/templates/:id', async (req, res, ctx) => {
   if (ctx.user.role !== 'designer') return send(res, 403, { error: 'Лише дизайнер' });
   const t = await db().getTemplate(ctx.params.id); if (!t || !(await ownProject(ctx, t.project_id))) return send(res, 404, { error: 'not found' });
-  const b = ctx.body; const updated = await db().updateTemplate(t.id, { name: b.name ?? t.name, formats: b.formats ?? t.formats, brand: b.brand ?? t.brand, slots: b.slots ?? t.slots });
+  const b = ctx.body; 
+  const slots = b.slots ?? t.slots;
+  if (b.layout) slots.layout = b.layout;
+  const updated = await db().updateTemplate(t.id, { name: b.name ?? t.name, formats: b.formats ?? t.formats, brand: b.brand ?? t.brand, slots });
   send(res, 200, { template: updated });
 }, { auth: true });
 R('DELETE', '/api/templates/:id', async (req, res, ctx) => {

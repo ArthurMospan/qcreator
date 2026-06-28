@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: sans-serif; padding: 16px; margin: 0; background: #fff; }
+  h3 { margin-top: 0; font-size: 14px; font-weight: 600; }
+  label { display: block; font-size: 11px; font-weight: bold; margin-bottom: 4px; margin-top: 12px; color: #333; }
+  input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+  button { margin-top: 16px; width: 100%; padding: 10px; background: #2D1B3D; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; }
+  button:hover { background: #1a0f24; }
+  #status { margin-top: 12px; font-size: 11px; color: #666; word-break: break-all; }
+  .err { color: #d32f2f !important; }
+  .ok { color: #2e7d32 !important; }
+</style>
+</head>
+<body>
+  <h3>qCreator Export</h3>
+  <label>Backend URL</label>
+  <input type="text" id="url" value="http://localhost:3000" />
+  
+  <label>Project ID</label>
+  <input type="text" id="pid" placeholder="e.g. 1" value="1" />
+  
+  <label>Template Name</label>
+  <input type="text" id="name" placeholder="Figma Template" value="Figma Template" />
+  
+  <button id="export">Export Selected Frame</button>
+  <div id="status"></div>
+
+  <script>
+    document.getElementById('export').onclick = () => {
+      document.getElementById('status').innerText = 'Extracting from Figma...';
+      document.getElementById('status').className = '';
+      parent.postMessage({ pluginMessage: { type: 'export' } }, '*');
+    };
+
+    window.onmessage = async (event) => {
+      const msg = event.data.pluginMessage;
+      if (msg.type === 'error') {
+        document.getElementById('status').innerText = msg.message;
+        document.getElementById('status').className = 'err';
+        return;
+      }
+      if (msg.type === 'export-result') {
+        document.getElementById('status').innerText = 'Sending to qCreator...';
+        
+        const url = document.getElementById('url').value.replace(/\/$/, '');
+        const pid = document.getElementById('pid').value;
+        const name = document.getElementById('name').value;
+        
+        try {
+          const res = await fetch(`${url}/api/projects/${pid}/templates`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name,
+              formats: ['figma'],
+              brand: msg.brand,
+              slots: msg.slots,
+              layout: msg.layout
+            })
+          });
+          
+          if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+          const json = await res.json();
+          document.getElementById('status').innerText = `Success! Template ID: ${json.template.id}`;
+          document.getElementById('status').className = 'ok';
+        } catch (e) {
+          document.getElementById('status').innerText = `API Error: ${e.message}`;
+          document.getElementById('status').className = 'err';
+        }
+      }
+    };
+  </script>
+</body>
+</html>
